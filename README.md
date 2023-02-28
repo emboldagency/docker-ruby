@@ -1,1 +1,1 @@
-# docker ruby 3.0.2
+# docker ruby 2.6.9

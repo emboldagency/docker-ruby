@@ -7,10 +7,8 @@ RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-
 RUN curl -sS https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
 RUN apt-get update && apt-get install -y postgresql-12 postgresql-server-dev-12
 
-# Begin From docker-library ruby 3.0 image
-# https://github.com/docker-library/ruby/blob/3904524e5d9e538b33525a602a4bcb7618aff8b6/3.0/buster/Dockerfile
+# Begin From docker-library ruby 2.6 image
 
-# skip installing gem documentation
 # skip installing gem documentation
 RUN set -eux; \
 	mkdir -p /usr/local/etc; \
@@ -20,9 +18,9 @@ RUN set -eux; \
 	} >> /usr/local/etc/gemrc
 
 ENV LANG C.UTF-8
-ENV RUBY_MAJOR 3.0
-ENV RUBY_VERSION 3.0.2
-ENV RUBY_DOWNLOAD_SHA256 570e7773100f625599575f363831166d91d49a1ab97d3ab6495af44774155c40
+ENV RUBY_MAJOR 2.6
+ENV RUBY_VERSION 2.6.9
+ENV RUBY_DOWNLOAD_SHA256 6a041d82ae6e0f02ccb1465e620d94a7196489d8a13d6018a160da42ebc1eece
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -99,7 +97,7 @@ RUN mkdir -p $GEM_HOME
 RUN chmod -R 777 $GEM_HOME
 RUN chown -R embold:embold $GEM_HOME
 
-# End From docker-library ruby 3.0 image
+# End From docker-library ruby 2.6 image
 
 RUN gem install bundler
 
@@ -112,6 +110,7 @@ COPY [ "configure", "/coder/configure" ]
 
 RUN chmod +x /coder/configure
 
+# Install Solidus requirement
 RUN apt-get update
 
 # Install Solidus requirement

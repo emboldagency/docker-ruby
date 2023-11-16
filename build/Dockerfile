@@ -2,7 +2,7 @@ FROM emboldcreative/base:ubuntu20.04
 
 USER root
 
-ENV RUBY_MAJOR=2.0 \
+ENV RUBY_MAJOR=2.6 \
     RUBY_VERSION=2.6.9 \
     RUBY_DOWNLOAD_SHA256=6a041d82ae6e0f02ccb1465e620d94a7196489d8a13d6018a160da42ebc1eece \
     # don't create ".bundle" in all our apps

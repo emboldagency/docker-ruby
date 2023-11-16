@@ -1,6 +1,13 @@
-FROM emboldcreative/base:ubuntu22.04
+FROM emboldcreative/base:ubuntu20.04
 
 USER root
+
+ENV RUBY_MAJOR=3.0 \
+    RUBY_VERSION=3.0.2 \
+    RUBY_DOWNLOAD_SHA256=570e7773100f625599575f363831166d91d49a1ab97d3ab6495af44774155c40 \
+    # don't create ".bundle" in all our apps
+    BUNDLE_SILENCE_ROOT_WARNING=1 \
+    BUNDLE_APP_CONFIG=$GEM_HOME
 
 # Install requirements
 RUN sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
@@ -23,20 +30,20 @@ RUN set -eux; \
     echo 'update: --no-document'; \
     } >> /usr/local/etc/gemrc; \
     # some of ruby's build scripts are written in ruby
-    #   we purge system ruby later to make sure our final image uses what we just built
+    # we purge system ruby later to make sure our final image uses what we just built
     set -eux; \
-    \
     savedAptMark="$(apt-mark showmanual)"; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
     # bison \
+    checkinstall \
     dpkg-dev \
     # libgdbm-dev \
     ruby \
     ; \
     rm -rf /var/lib/apt/lists/*; \
     \
-    wget -O ruby.tar.xz "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR%-rc}/ruby-$RUBY_VERSION.tar.xz"; \
+    curl -o ruby.tar.xz "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR%-rc}/ruby-$RUBY_VERSION.tar.xz"; \
     echo "$RUBY_DOWNLOAD_SHA256 *ruby.tar.xz" | sha256sum --check --strict; \
     \
     mkdir -p /usr/src/ruby; \
@@ -53,7 +60,6 @@ RUN set -eux; \
     cat file.c; \
     } > file.c.new; \
     mv file.c.new file.c; \
-    \
     autoconf; \
     gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
     ./configure \
@@ -86,20 +92,11 @@ RUN set -eux; \
     gem --version; \
     bundle --version
 
-# COPY configure-php /coder/configure-ruby
-
-# Combine our configure script
-# RUN cat /coder/configure-ruby >> /coder/configure
-
-# don't create ".bundle" in all our apps
-ENV BUNDLE_SILENCE_ROOT_WARNING=1 \
-    BUNDLE_APP_CONFIG=$GEM_HOME
-
 # Ruby gems
 RUN mkdir -p $GEM_HOME && \
     gem install bundler colorls /coder/pulsar.gem && \
-	chown -R embold:embold $GEM_HOME && \
-	chmod -R 1777 $GEM_HOME
+    chown -R embold:embold $GEM_HOME && \
+    chmod -R 1777 $GEM_HOME
 
 # Copy configuration files
 COPY entrypoint.sh /usr/bin/

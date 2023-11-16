@@ -2,9 +2,9 @@ FROM emboldcreative/base:ubuntu20.04
 
 USER root
 
-ENV RUBY_MAJOR=3.0 \
-    RUBY_VERSION=3.0.2 \
-    RUBY_DOWNLOAD_SHA256=570e7773100f625599575f363831166d91d49a1ab97d3ab6495af44774155c40 \
+ENV RUBY_MAJOR=2.0 \
+    RUBY_VERSION=2.6.9 \
+    RUBY_DOWNLOAD_SHA256=6a041d82ae6e0f02ccb1465e620d94a7196489d8a13d6018a160da42ebc1eece \
     # don't create ".bundle" in all our apps
     BUNDLE_SILENCE_ROOT_WARNING=1 \
     BUNDLE_APP_CONFIG=$GEM_HOME
@@ -19,7 +19,7 @@ RUN sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)
     libjpeg-dev \
     libtiff-dev \
     libwebp-dev \
-    postgresql-client-15 && \
+    postgresql-client-10 && \
     rm -rf /var/lib/apt/lists/*
 
 # skip installing gem documentation

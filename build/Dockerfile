@@ -15,9 +15,10 @@ RUN sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)
     apt-get update &&\
     apt-get install -y -q --no-install-recommends \
     imagemagick \
-    libvips \
     libjpeg-dev \
+    libpq-dev \
     libtiff-dev \
+    libvips \
     libwebp-dev \
     postgresql-client-16 && \
     rm -rf /var/lib/apt/lists/*

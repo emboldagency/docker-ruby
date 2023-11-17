@@ -246,8 +246,3 @@ module "jetbrains_gateway" {
     folder         = "/home/embold/code/${data.coder_workspace.me.name}"
     jetbrains_ides = ["RM"]
 }
-
-module "git-commit-signing" {
-    source = "https://registry.coder.com/modules/git-commit-signing"
-    agent_id = coder_agent.main.id
-}

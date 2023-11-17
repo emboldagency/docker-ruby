@@ -19,7 +19,7 @@ RUN sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)
     libjpeg-dev \
     libtiff-dev \
     libwebp-dev \
-    postgresql-client-15 && \
+    postgresql-client-16 && \
     rm -rf /var/lib/apt/lists/*
 
 # skip installing gem documentation

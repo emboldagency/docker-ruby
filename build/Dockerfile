@@ -1,4 +1,4 @@
-FROM emboldcreative/base:ubuntu20.04
+FROM registry.embold.app/base:ubuntu20.04
 
 USER root
 

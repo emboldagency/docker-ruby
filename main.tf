@@ -154,7 +154,7 @@ resource "docker_container" "pg" {
 }
 
 resource "docker_image" "ruby302" {
-    name          = "registry.embold.app/ruby:2.6.9-ubuntu22.04"
+    name          = "registry.embold.app/ruby:2.6.9-ubuntu20.04"
     build {
         context = "./build"
     }

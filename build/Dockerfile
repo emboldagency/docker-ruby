@@ -2,11 +2,13 @@ FROM registry.embold.app/base:ubuntu20.04
 
 USER root
 
-ENV RUBY_MAJOR=3.0 \
+ARG RUBY_MAJOR=3.0 \
     RUBY_VERSION=3.0.2 \
     RUBY_DOWNLOAD_SHA256=570e7773100f625599575f363831166d91d49a1ab97d3ab6495af44774155c40 \
-    # don't create ".bundle" in all our apps
-    BUNDLE_SILENCE_ROOT_WARNING=1 \
+    POSTGRES_VERSION=16
+
+# don't create ".bundle" in all our apps
+ENV BUNDLE_SILENCE_ROOT_WARNING=1 \
     BUNDLE_APP_CONFIG=$GEM_HOME
 
 # Install requirements
@@ -20,11 +22,10 @@ RUN sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)
     libtiff-dev \
     libvips \
     libwebp-dev \
-    postgresql-client-16 && \
-    rm -rf /var/lib/apt/lists/*
-
-# skip installing gem documentation
-RUN set -eux; \
+    postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/* \
+    # skip installing gem documentation
+    set -eux; \
     mkdir -p /usr/local/etc; \
     { \
     echo 'install: --no-document'; \
@@ -91,19 +92,15 @@ RUN set -eux; \
     # rough smoke test
     ruby --version; \
     gem --version; \
-    bundle --version
-
-# Ruby gems
-RUN mkdir -p $GEM_HOME && \
-    gem install bundler colorls /coder/pulsar.gem && \
-    chown -R embold:embold $GEM_HOME && \
-    chmod -R 1777 $GEM_HOME
+    bundle --version \
+    # Ruby gems
+    && mkdir -p $GEM_HOME \
+    && gem install bundler colorls /coder/pulsar.gem \
+    && chown -R embold:embold $GEM_HOME \
+    && chmod -R 1777 $GEM_HOME
 
 # Copy configuration files
-COPY entrypoint.sh /usr/bin/
-
-RUN chmod +x /coder/configure && \
-    chmod +x /usr/bin/entrypoint.sh
+COPY --chmod=775 entrypoint.sh /usr/bin/
 
 USER embold
 

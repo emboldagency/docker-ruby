@@ -240,10 +240,10 @@ module "code-server" {
     }
 }
 
-# module "jetbrains_gateway" {
-#     source         = "https://registry.coder.com/modules/jetbrains-gateway"
-#     agent_id       = coder_agent.main.id
-#     agent_name     = data.coder_workspace.me.name
-#     folder         = "/home/embold/code/${data.coder_workspace.me.name}"
-#     jetbrains_ides = ["RM"]
-# }
+module "jetbrains_gateway" {
+    source         = "https://registry.coder.com/modules/jetbrains-gateway"
+    agent_id       = coder_agent.main.id
+    agent_name     = data.coder_workspace.me.name
+    folder         = "/home/embold/code/${data.coder_workspace.me.name}"
+    jetbrains_ides = ["RM"]
+}

@@ -3,7 +3,7 @@
 
 provider "registry.terraform.io/coder/coder" {
   version     = "0.18.0"
-  constraints = ">= 0.11.0, >= 0.12.0, ~> 0.18.0"
+  constraints = "~> 0.18.0"
   hashes = [
     "h1:cAz7YDWWQxa6ka1H+LkvcmjFW1O1w7XJ2CC/uicN2hA=",
     "zh:02beef8cde17ec715d0f3fb4e50bc903625c44f7883cdbeea4d1802fc4b56c15",

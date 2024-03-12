@@ -1,24 +1,31 @@
 ---
-name: Ruby 3.0.2 on Ubuntu 22.04
-description: Ruby 3.0.2 on Ubuntu 22.04 with postgres
+name: Ruby on Ubuntu 22.04
+description: Ruby on Ubuntu 22.04 with postgres
 tags: [local, docker]
 icon: /icon/docker.png
 ---
 
-# Ruby 3.0.2 on Ubuntu 22.04
+# Ruby on Ubuntu 22.04
 
 ## Getting started
 
 Clone the repo.
 
-Commit and push any changes to git, then do `coder templates push ruby302-ubuntu2204` to push the template up to Coder.
+Commit and push any changes to git, then do `coder templates push ruby-ubuntu2204` to push the template up to Coder.
 
 # Updating the image
 
-Autobuilds are turned on in Dockerhub whenever the branch has a new commit or docker-base gets updated.
+The image builds automatically during startup if it doesn't already exist on the Coder server.
 
 If you need to build/push manually:
 
-Run `docker build -t registry.embold.app/ruby:3.0.2-ubuntu22.04 ./build` to build the image
+```
+# Set the base image version
+UBUNTU_VERSION=22.04
 
-Run `docker push registry.embold.app/ruby:3.0.2-ubuntu22.04`to push the image to Docker Hub
+# Build the image
+docker build -t registry.embold.dev/ruby:rbenv-ubuntu$UBUNTU_VERSION ./build
+
+# Push the image to the registry
+docker push registry.embold.dev/ruby:rbenv-ubuntu$UBUNTU_VERSION
+```

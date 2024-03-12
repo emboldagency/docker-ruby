@@ -1,5 +1,4 @@
-ARG UBUNTU_VERSION=22.04 \
-    RUBY_VERSION=3.0.6
+ARG RUBY_VERSION=3.0.6
 
 # FROM emboldcreative/base:ubuntu${UBUNTU_VERSION}
 FROM emboldcreative/base:ubuntu-test
@@ -29,10 +28,7 @@ COPY --chmod=775 entrypoint.sh /usr/bin/
 
 USER embold
 
-RUN rbenv install --skip-existing $RUBY_VERSION \
-    && rbenv global $RUBY_VERSION \
-    && rbenv rehash \
-    && gem install bundler colorls /coder/pulsar.gem --conservative
+RUN RUBY_VERSION=${RUBY_VERSION} /coder/scripts/ruby-install.sh
 
 # Run before starting to remove server.pid
 ENTRYPOINT ["entrypoint.sh"]

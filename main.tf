@@ -240,7 +240,8 @@ resource "docker_container" "workspace" {
     "PGHOST=postgres",
     "PGDATABASE=${local.postgres_db}",
     "PGUSER=embold",
-    "PGPASSWORD=embold"
+    "PGPASSWORD=embold",
+    "RUBY_VERSION=${data.coder_parameter.ruby_version.value}"
   ]
   host {
     host = "host.docker.internal"

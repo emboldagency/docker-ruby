@@ -28,12 +28,28 @@ data "coder_provisioner" "me" {
 data "coder_workspace" "me" {
 }
 
+# data "coder_external_auth" "github" {
+#   # Matches the ID of the git auth provider in Coder.
+#   id = "github"
+# }
+
 locals {
   devurl      = "https://webapp--main--${data.coder_workspace.me.name}--${data.coder_workspace.me.owner}.embold.dev"
-  postgres_db = replace(data.coder_workspace.me.name, "-", "_")
+  app         = try(length(data.coder_parameter.pulsar_app_name.value), 0) > 0 ? data.coder_parameter.pulsar_app_name.value : data.coder_workspace.me.name
+  postgres_db = replace(local.app, "-", "_")
 }
 
-variable "DOCKER_REGISTRY_PASS" {}
+variable "DOCKER_REGISTRY_PASS" {
+  sensitive = true
+}
+
+data "coder_parameter" "pulsar_app_name" {
+  name        = "Pulsar App Name"
+  description = "What is the pulsar app name?"
+  icon        = "/icon/coder.svg"
+  type        = "string"
+  mutable     = false
+}
 
 data "coder_parameter" "ubuntu_version" {
   name        = "Ubuntu Version"
@@ -77,6 +93,15 @@ data "coder_parameter" "postgres_version" {
   mutable     = true
 }
 
+# data "coder_parameter" "rails_master_key" {
+#   name        = "Rails Master Key"
+#   description = "Enter the rails master key to "
+#   icon        = "emojis/1f511.png"
+#   type        = "string"
+#   default     = ""
+#   mutable     = true
+# }
+
 resource "coder_agent" "main" {
   arch                    = data.coder_provisioner.me.arch
   os                      = "linux"
@@ -112,7 +137,7 @@ resource "coder_agent" "main" {
     timeout      = 1
   }
   env = {
-    "APP"                  = data.coder_workspace.me.name
+    "APP"                  = local.app
     "CODER_USERNAME"       = data.coder_workspace.me.owner
     "CODER_WORKSPACE_NAME" = data.coder_workspace.me.name
     "CODER_WORKSPACE_PORT" = 3000
@@ -121,6 +146,7 @@ resource "coder_agent" "main" {
     "GIT_AUTHOR_NAME"      = data.coder_workspace.me.owner
     "GIT_COMMITTER_EMAIL"  = data.coder_workspace.me.owner_email
     "GIT_COMMITTER_NAME"   = data.coder_workspace.me.owner
+    # "GITHUB_TOKEN"         = data.coder_git_auth.github.access_token
   }
   startup_script = <<-EOT
         set -e
@@ -211,9 +237,9 @@ data "docker_registry_image" "ruby" {
 }
 
 resource "docker_image" "ruby" {
-  name = data.docker_registry_image.ruby.name
+  name          = data.docker_registry_image.ruby.name
   pull_triggers = [data.docker_registry_image.ruby.sha256_digest]
-  keep_locally = true
+  keep_locally  = true
   # build {
   #   context = "./build"
   #   build_arg = {
@@ -243,10 +269,10 @@ resource "docker_container" "workspace" {
     "PGPASSWORD=embold",
     "RUBY_VERSION=${data.coder_parameter.ruby_version.value}"
   ]
-  host {
-    host = "host.docker.internal"
-    ip   = "host-gateway"
-  }
+  # host {
+  #   host = "host.docker.internal"
+  #   ip   = "host-gateway"
+  # }
   volumes {
     container_path = "/home/embold"
     volume_name    = docker_volume.home_volume.name
@@ -300,7 +326,7 @@ module "code-server" {
   display_name = "VS Code Web"
   source       = "https://registry.coder.com/modules/code-server"
   agent_id     = coder_agent.main.id
-  folder       = "/home/embold/code/${data.coder_workspace.me.name}"
+  folder       = "/home/embold/code/${local.app}"
   extensions   = []
   settings = {
     "workbench.colorTheme" : "Default Dark Modern"
@@ -311,6 +337,6 @@ module "jetbrains_gateway" {
   source         = "https://registry.coder.com/modules/jetbrains-gateway"
   agent_id       = coder_agent.main.id
   agent_name     = data.coder_workspace.me.name
-  folder         = "/home/embold/code/${data.coder_workspace.me.name}"
+  folder         = "/home/embold/code/${local.app}"
   jetbrains_ides = ["RM"]
 }

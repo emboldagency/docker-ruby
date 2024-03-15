@@ -24,8 +24,8 @@ If you need to build/push manually:
 UBUNTU_VERSION=22.04
 
 # Build the image
-docker build -t registry.embold.dev/ruby:rbenv-ubuntu$UBUNTU_VERSION ./build
+docker build -t emboldcreative/ruby:rbenv-ubuntu$UBUNTU_VERSION ./build
 
 # Push the image to the registry
-docker push registry.embold.dev/ruby:rbenv-ubuntu$UBUNTU_VERSION
+docker push emboldcreative/ruby:rbenv-ubuntu$UBUNTU_VERSION
 ```

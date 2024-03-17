@@ -286,7 +286,7 @@ resource "docker_container" "workspace" {
     "BUNDLE_APP_CONFIG=${local.gem_home}",
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "GEM_HOME=${local.gem_home}",
-    "PATH=$PATH:${local.gem_home}/bin",
+    "PATH=\"$PATH:${local.gem_home}/bin\"",
     "PGDATABASE=${local.postgres_db}",
     "PGHOST=postgres",
     "PGPASSWORD=embold",

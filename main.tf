@@ -80,13 +80,33 @@ data "coder_parameter" "ruby_version" {
   description = "Which version of Ruby?"
   icon        = "/icon/ruby.png"
   type        = "string"
-  default     = "3.0.6"
+  default     = "3.0.2"
   mutable     = true
+  option {
+    name  = "3.3.0"
+    value = "3.3.0"
+  }
+  option {
+    name  = "3.2.3"
+    value = "3.2.3"
+  }
+  option {
+    name  = "3.1.4"
+    value = "3.1.4"
+  }
+  option {
+    name  = "3.0.6"
+    value = "3.0.6"
+  }
+  option {
+    name  = "3.0.2"
+    value = "3.0.2"
+  }
 }
 
 data "coder_parameter" "postgres_version" {
   name        = "Postgres Version"
-  description = "Which version of Postgres?"
+  description = "Should match a DockerHub tag for the Postgres image."
   icon        = "/icon/database.svg"
   type        = "string"
   default     = "16"

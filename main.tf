@@ -37,7 +37,6 @@ locals {
   devurl      = "https://webapp--main--${data.coder_workspace.me.name}--${data.coder_workspace.me.owner}.embold.dev"
   app         = try(length(data.coder_parameter.pulsar_app_name.value), 0) > 0 ? data.coder_parameter.pulsar_app_name.value : data.coder_workspace.me.name
   postgres_db = replace(local.app, "-", "_")
-  gem_home    = "/home/embold/.gems/${data.coder_parameter.ruby_version.value}"
 }
 
 variable "DOCKER_REGISTRY_PASS" {
@@ -283,10 +282,7 @@ resource "docker_container" "workspace" {
   # Use the docker gateway if the access URL is 127.0.0.1
   entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env = [
-    "BUNDLE_APP_CONFIG=${local.gem_home}",
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    "GEM_HOME=${local.gem_home}",
-    "PATH=\"$PATH:${local.gem_home}/bin\"",
     "PGDATABASE=${local.postgres_db}",
     "PGHOST=postgres",
     "PGPASSWORD=embold",

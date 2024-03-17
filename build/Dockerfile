@@ -1,10 +1,14 @@
 ARG UBUNTU_VERSION=22.04 \
-    RUBY_VERSION=3.0.6
+    RUBY_VERSION=3.0.2
 
 # FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} as base
 FROM emboldcreative/base:ubuntu-test
 
 ARG RUBY_VERSION
+
+ENV BUNDLE_APP_CONFIG=/home/embold/.gems/${RUBY_VERSION} \
+    GEM_HOME=/home/embold/.gems/${RUBY_VERSION} \
+    PATH=$PATH:/home/embold/.gems/${RUBY_VERSION}/bin
 
 USER root
 

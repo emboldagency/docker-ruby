@@ -3,4 +3,5 @@
 # Ruby
 #######################################
 
-. /coder/scripts/ruby-install.sh
+mkdir -p $GEM_HOME \
+    && gem install bundler colorls /coder/pulsar.gem --conservative

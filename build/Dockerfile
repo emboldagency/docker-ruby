@@ -50,7 +50,7 @@ COPY --chmod=775 entrypoint.sh /usr/bin/
 USER embold
 
 RUN mkdir -p $GEM_HOME \
-    && gem install bundler colorls /coder/pulsar.gem --conservative
+    && gem install bundler colorls /coder/pulsar.gem
 
 # Run before starting to remove server.pid
 ENTRYPOINT ["entrypoint.sh"]

@@ -4,4 +4,6 @@
 #######################################
 
 mkdir -p $GEM_HOME \
-    && gem install bundler colorls /coder/pulsar.gem --conservative
+    && gem install bundler colorls /coder/pulsar.gem --conservative \
+    && cd ~/pulsar \
+    && bundle install

@@ -337,6 +337,10 @@ resource "coder_metadata" "container_info" {
     value = basename(docker_image.ruby.name)
   }
   item {
+    key = "digest"
+    value = docker_image.ruby.sha256_digest
+  }
+  item {
     key   = "devurl"
     value = local.devurl
   }

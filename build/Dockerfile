@@ -28,7 +28,12 @@ RUN install -d /usr/share/postgresql-common/pgdg \
     libwebp-dev \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
-    && ruby-build ${RUBY_VERSION} /usr/local
+    # Combine our configure scripts
+    && cd /coder \
+    && cat scripts/configure-ruby >> scripts/configure \
+    && ruby-build ${RUBY_VERSION} /usr/local \
+    && gem update --system \
+    && chown -R embold:embold /home/embold/.gems
 
 # Copy configuration files
 COPY --chmod=775 entrypoint.sh /usr/bin/
@@ -50,7 +55,7 @@ COPY --chmod=775 entrypoint.sh /usr/bin/
 USER embold
 
 RUN mkdir -p $GEM_HOME \
-    && gem install bundler colorls /coder/pulsar.gem
+    && gem install colorls /coder/pulsar-*.gem --conservative
 
 # Run before starting to remove server.pid
 ENTRYPOINT ["entrypoint.sh"]

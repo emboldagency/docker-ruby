@@ -274,10 +274,6 @@ resource "docker_container" "workspace" {
     "PGUSER=embold",
     "RUBY_VERSION=${data.coder_parameter.ruby_version.value}"
   ]
-  # host {
-  #   host = "host.docker.internal"
-  #   ip   = "host-gateway"
-  # }
   volumes {
     container_path = "/home/embold"
     volume_name    = docker_volume.home_volume.name

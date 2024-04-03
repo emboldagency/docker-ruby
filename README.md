@@ -1,31 +1,30 @@
 ---
-name: Ruby on Ubuntu 22.04
-description: Ruby on Ubuntu 22.04 with postgres
+name: Ruby
+description: Ruby on Ubuntu with Postgres
 tags: [local, docker]
 icon: /icon/docker.png
 ---
 
-# Ruby on Ubuntu 22.04
+# Ruby
 
 ## Getting started
 
 Clone the repo.
 
-Commit and push any changes to git, then do `coder templates push ruby-ubuntu2204` to push the template up to Coder.
+Commit and push any changes to git, then do `coder templates push ruby` to push the template up to Coder.
 
 # Updating the image
 
-The image builds automatically during startup if it doesn't already exist on the Coder server.
-
-If you need to build/push manually:
-
 ```
 # Set the base image version
-UBUNTU_VERSION=22.04
+export UBUNTU_VERSION=22.04
+
+# Set the ruby version
+export RUBY_VERSION=3.0.2
 
 # Build the image
-docker build -t emboldcreative/ruby:rbenv-ubuntu$UBUNTU_VERSION ./build
+docker build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} --build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build
 
 # Push the image to the registry
-docker push emboldcreative/ruby:rbenv-ubuntu$UBUNTU_VERSION
+docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}
 ```

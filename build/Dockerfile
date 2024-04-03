@@ -1,8 +1,7 @@
 ARG UBUNTU_VERSION=22.04 \
     RUBY_VERSION=3.0.2
 
-# FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} as base
-FROM emboldcreative/base:ubuntu-test
+FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} as base
 
 ARG RUBY_VERSION
 
@@ -27,6 +26,7 @@ RUN install -d /usr/share/postgresql-common/pgdg \
     libvips \
     libwebp-dev \
     postgresql-client \
+    tzdata \
     && rm -rf /var/lib/apt/lists/* \
     # Combine our configure scripts
     && cd /coder \
@@ -37,20 +37,6 @@ RUN install -d /usr/share/postgresql-common/pgdg \
 
 # Copy configuration files
 COPY --chmod=775 entrypoint.sh /usr/bin/
-
-# FROM base as ruby3.0.2
-
-# FROM base as ruby3.0.6
-
-# FROM base as ruby3.1.4
-
-# FROM base as ruby3.2.3
-
-# FROM base as ruby3.3.0
-
-# FROM ruby${RUBY_VERSION} as final
-
-# ARG RUBY_VERSION
 
 USER embold
 

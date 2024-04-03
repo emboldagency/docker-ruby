@@ -28,11 +28,6 @@ data "coder_provisioner" "me" {
 data "coder_workspace" "me" {
 }
 
-# data "coder_external_auth" "github" {
-#   # Matches the ID of the git auth provider in Coder.
-#   id = "github"
-# }
-
 locals {
   devurl      = "https://webapp--main--${data.coder_workspace.me.name}--${data.coder_workspace.me.owner}.embold.dev"
   app         = try(length(data.coder_parameter.pulsar_app_name.value), 0) > 0 ? data.coder_parameter.pulsar_app_name.value : data.coder_workspace.me.name
@@ -253,23 +248,13 @@ resource "docker_container" "pg" {
 }
 
 data "docker_registry_image" "ruby" {
-  name = "emboldcreative/ruby:rbenv${data.coder_parameter.ruby_version.value}-ubuntu${data.coder_parameter.ubuntu_version.value}"
+  name = "emboldcreative/ruby:${data.coder_parameter.ruby_version.value}-ubuntu${data.coder_parameter.ubuntu_version.value}"
 }
 
 resource "docker_image" "ruby" {
   name          = data.docker_registry_image.ruby.name
   pull_triggers = [data.docker_registry_image.ruby.sha256_digest]
   keep_locally  = true
-  # build {
-  #   context = "./build"
-  #   build_arg = {
-  #     RUBY_VERSION : data.coder_parameter.ruby_version.value
-  #     UBUNTU_VERSION : data.coder_parameter.ubuntu_version.value
-  #   }
-  # }
-  # triggers = {
-  #   dir_sha1 = sha1(join("", [for f in fileset(path.module, "build/*") : filesha1(f)]))
-  # }
 }
 
 resource "docker_container" "workspace" {

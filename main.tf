@@ -108,14 +108,14 @@ data "coder_parameter" "postgres_version" {
   mutable     = true
 }
 
-# data "coder_parameter" "rails_master_key" {
-#   name        = "Rails Master Key"
-#   description = "Enter the rails master key to "
-#   icon        = "emojis/1f511.png"
-#   type        = "string"
-#   default     = ""
-#   mutable     = true
-# }
+data "coder_parameter" "rails_master_key" {
+  name        = "Rails Master Key"
+  description = "Enter the rails master key to use for encrypted credentials. This will set the RAILS_MASTER_KEY environment variable."
+  icon        = "/emojis/1f511.png"
+  type        = "string"
+  default     = ""
+  mutable     = true
+}
 
 resource "coder_agent" "main" {
   arch                    = data.coder_provisioner.me.arch
@@ -272,7 +272,8 @@ resource "docker_container" "workspace" {
     "PGHOST=postgres",
     "PGPASSWORD=embold",
     "PGUSER=embold",
-    "RUBY_VERSION=${data.coder_parameter.ruby_version.value}"
+    "RUBY_VERSION=${data.coder_parameter.ruby_version.value}",
+    "RAILS_MASTER_KEY=${data.coder_parameter.rails_master_key.value}"
   ]
   volumes {
     container_path = "/home/embold"

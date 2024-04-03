@@ -40,9 +40,10 @@ variable "DOCKER_REGISTRY_PASS" {
 
 data "coder_parameter" "pulsar_app_name" {
   name        = "Pulsar App Name"
-  description = "What is the pulsar app name?"
+  description = "What is the pulsar app name? If this is blank, the workspace name will be used."
   icon        = "/icon/coder.svg"
   type        = "string"
+  default     = ""
   mutable     = false
 }
 

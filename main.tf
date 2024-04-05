@@ -47,30 +47,6 @@ data "coder_parameter" "pulsar_app_name" {
   mutable     = false
 }
 
-data "coder_parameter" "ubuntu_version" {
-  name        = "Ubuntu Version"
-  description = "Which version of Ubuntu?"
-  icon        = "/icon/ubuntu.svg"
-  type        = "string"
-  default     = "22.04"
-  mutable     = true
-
-  option {
-    name  = "24.04 LTS (Noble)"
-    value = "24.04"
-  }
-
-  option {
-    name  = "22.04 LTS (Jammy)"
-    value = "22.04"
-  }
-
-  option {
-    name  = "20.04 LTS (Focal)"
-    value = "20.04"
-  }
-}
-
 data "coder_parameter" "ruby_version" {
   name        = "Ruby Version"
   description = "Which version of Ruby?"
@@ -102,11 +78,35 @@ data "coder_parameter" "ruby_version" {
 
 data "coder_parameter" "postgres_version" {
   name        = "Postgres Version"
-  description = "Should match a DockerHub tag for the Postgres image."
+  description = "What version of Postgres is the database? Should match a DockerHub tag for the Postgres image"
   icon        = "/icon/database.svg"
   type        = "string"
-  default     = "16"
+  default     = "15"
+  mutable     = false
+}
+
+data "coder_parameter" "ubuntu_version" {
+  name        = "Ubuntu Version"
+  description = "Which version of Ubuntu?"
+  icon        = "/icon/ubuntu.svg"
+  type        = "string"
+  default     = "22.04"
   mutable     = true
+
+  option {
+    name  = "24.04 LTS (Noble)"
+    value = "24.04"
+  }
+
+  option {
+    name  = "22.04 LTS (Jammy)"
+    value = "22.04"
+  }
+
+  option {
+    name  = "20.04 LTS (Focal)"
+    value = "20.04"
+  }
 }
 
 data "coder_parameter" "rails_master_key" {
@@ -122,36 +122,6 @@ resource "coder_agent" "main" {
   arch                    = data.coder_provisioner.me.arch
   os                      = "linux"
   startup_script_behavior = "blocking"
-  metadata {
-    display_name = "CPU Usage"
-    key          = "0_cpu_usage"
-    script       = "coder stat cpu"
-    interval     = 10
-    timeout      = 1
-  }
-  metadata {
-    display_name = "RAM Usage"
-    key          = "1_ram_usage"
-    script       = "coder stat mem"
-    interval     = 10
-    timeout      = 1
-  }
-  metadata {
-    display_name = "Disk Usage"
-    key          = "2_disk_usage"
-    script       = "df -h | awk '$6 ~ /^\\/$/ { print $5 }'"
-    interval     = 10
-    timeout      = 1
-  }
-  metadata {
-    display_name = "Load Average"
-    key          = "3_load_average"
-    script       = <<EOT
-            awk '{print $1,$2,$3}' /proc/loadavg
-        EOT
-    interval     = 10
-    timeout      = 1
-  }
   env = {
     "APP"                  = local.app
     "CODER_USERNAME"       = data.coder_workspace.me.owner

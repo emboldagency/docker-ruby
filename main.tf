@@ -237,15 +237,16 @@ resource "docker_container" "workspace" {
   hostname = data.coder_workspace.me.name
   # Use the docker gateway if the access URL is 127.0.0.1
   entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
-  env = [
+  env = compact([
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "PGDATABASE=${local.postgres_db}",
     "PGHOST=postgres",
     "PGPASSWORD=embold",
     "PGUSER=embold",
     "RUBY_VERSION=${data.coder_parameter.ruby_version.value}",
-    "RAILS_MASTER_KEY=${data.coder_parameter.rails_master_key.value}"
-  ]
+    # Set RAILS_MASTER_KEY only if param is not empty
+    "${data.coder_parameter.rails_master_key.value != "" ? "RAILS_MASTER_KEY=${data.coder_parameter.rails_master_key.value}" : ""}"
+  ])
   volumes {
     container_path = "/home/embold"
     volume_name    = docker_volume.home_volume.name

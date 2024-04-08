@@ -2,6 +2,14 @@
 
 **[Keep a Changelog](http://keepachangelog.com/) | [Semantic Versioning](http://semver.org/)**
 
+## [1.1.2] - 2024-04-08
+
+Ensure our gems get installed before dotfiles
+
+### Fixed
+
+- Move gem home creation and gem install code into base
+
 ## [1.1.1] - 2024-04-05
 
 Fix master key assignment

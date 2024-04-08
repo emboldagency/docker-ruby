@@ -93,10 +93,10 @@ data "coder_parameter" "ubuntu_version" {
   default     = "22.04"
   mutable     = true
 
-  option {
-    name  = "24.04 LTS (Noble)"
-    value = "24.04"
-  }
+  # option {
+  #   name  = "24.04 LTS (Noble)"
+  #   value = "24.04"
+  # }
 
   option {
     name  = "22.04 LTS (Jammy)"

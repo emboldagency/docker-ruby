@@ -29,8 +29,8 @@ data "coder_workspace" "me" {
 }
 
 locals {
-  devurl      = "https://webapp--main--${data.coder_workspace.me.name}--${data.coder_workspace.me.owner}.embold.dev"
-  app         = try(length(data.coder_parameter.pulsar_app_name.value), 0) > 0 ? data.coder_parameter.pulsar_app_name.value : data.coder_workspace.me.name
+  devurl      = "https://webapp--main--${lower(data.coder_workspace.me.name)}--${lower(data.coder_workspace.me.owner)}.embold.dev"
+  app         = try(length(data.coder_parameter.pulsar_app_name.value), 0) > 0 ? lower(data.coder_parameter.pulsar_app_name.value) : lower(data.coder_workspace.me.name)
   postgres_db = replace(local.app, "-", "_")
 }
 

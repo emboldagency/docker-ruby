@@ -55,23 +55,23 @@ data "coder_parameter" "ruby_version" {
   default     = "3.0.2"
   mutable     = true
   option {
-    name  = "3.3.0"
-    value = "3.3.0"
+    name  = "3.3.1"
+    value = "3.3.1"
   }
   option {
-    name  = "3.2.3"
-    value = "3.2.3"
+    name  = "3.2.4"
+    value = "3.2.4"
   }
   option {
-    name  = "3.1.4"
-    value = "3.1.4"
+    name  = "3.1.5"
+    value = "3.1.5"
   }
   option {
-    name  = "3.0.6"
-    value = "3.0.6"
+    name  = "3.0.7 (EOL)"
+    value = "3.0.7"
   }
   option {
-    name  = "3.0.2"
+    name  = "3.0.2 (EOL)"
     value = "3.0.2"
   }
 }
@@ -101,11 +101,6 @@ data "coder_parameter" "ubuntu_version" {
   option {
     name  = "22.04 LTS (Jammy)"
     value = "22.04"
-  }
-
-  option {
-    name  = "20.04 LTS (Focal)"
-    value = "20.04"
   }
 }
 

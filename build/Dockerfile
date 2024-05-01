@@ -31,9 +31,7 @@ RUN install -d /usr/share/postgresql-common/pgdg \
     # Combine our configure scripts
     && cd /coder \
     && cat scripts/configure-ruby >> scripts/configure \
-    && ruby-build ${RUBY_VERSION} /usr/local \
-    && gem update --system \
-    && chown -R embold:embold /home/embold/.gems
+    && ruby-build ${RUBY_VERSION} /usr/local
 
 # Copy configuration files
 COPY --chmod=775 entrypoint.sh /usr/bin/

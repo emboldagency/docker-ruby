@@ -44,7 +44,7 @@ data "coder_parameter" "pulsar_app_name" {
   icon        = "/icon/coder.svg"
   type        = "string"
   default     = ""
-  mutable     = false
+  mutable     = true
 }
 
 data "coder_parameter" "ruby_version" {
@@ -78,11 +78,11 @@ data "coder_parameter" "ruby_version" {
 
 data "coder_parameter" "postgres_version" {
   name        = "Postgres Version"
-  description = "What version of Postgres is the database? Should match a DockerHub tag for the Postgres image"
+  description = "What version of Postgres is the database? Should match a DockerHub tag for the Postgres image. NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start"
   icon        = "/icon/database.svg"
   type        = "string"
   default     = "15"
-  mutable     = false
+  mutable     = true
 }
 
 data "coder_parameter" "ubuntu_version" {

@@ -11,9 +11,6 @@ terraform {
   }
 }
 
-provider "coder" {
-}
-
 provider "docker" {
   registry_auth {
     address  = "registry-1.docker.io"
@@ -22,16 +19,28 @@ provider "docker" {
   }
 }
 
-data "coder_provisioner" "me" {
-}
+data "coder_provisioner" "me" {}
 
-data "coder_workspace" "me" {
-}
+data "coder_workspace" "me" {}
+
+data "coder_workspace_owner" "me" {}
+
 
 locals {
-  devurl      = "https://webapp--main--${lower(data.coder_workspace.me.name)}--${lower(data.coder_workspace.me.owner)}.embold.dev"
-  app         = try(length(data.coder_parameter.pulsar_app_name.value), 0) > 0 ? lower(data.coder_parameter.pulsar_app_name.value) : lower(data.coder_workspace.me.name)
-  postgres_db = replace(local.app, "-", "_")
+  app              = lower(try(length(local.pulsar_app_name), 0) > 0 ? local.pulsar_app_name : local.workspace_name)
+  db_name          = replace(local.app, "-", "_")
+  dev_url          = "https://webapp--main--${local.workspace_name}--${local.user_username}.embold.dev"
+  postgres_version = data.coder_parameter.postgres_version.value
+  pulsar_app_name  = data.coder_parameter.pulsar_app_name.value
+  rails_master_key = data.coder_parameter.rails_master_key.value != "" ? format("RAILS_MASTER_KEY=%s", data.coder_parameter.rails_master_key.value) : ""
+  ruby_version     = local.ruby_version
+  ubuntu_version   = local.ubuntu_version
+  user_email       = data.coder_workspace_owner.me.email
+  user_full_name   = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
+  user_id          = data.coder_workspace_owner.me.id
+  user_username    = lower(data.coder_workspace_owner.me.name)
+  workspace_id     = data.coder_workspace.me.id
+  workspace_name   = lower(data.coder_workspace.me.name)
 }
 
 variable "DOCKER_REGISTRY_PASS" {
@@ -49,36 +58,16 @@ data "coder_parameter" "pulsar_app_name" {
 
 data "coder_parameter" "ruby_version" {
   name        = "Ruby Version"
-  description = "Which version of Ruby?"
+  description = "Which version of Ruby? Must match a emboldcreative/ruby image tag on DockerHub"
   icon        = "/icon/ruby.png"
   type        = "string"
-  default     = "3.0.2"
+  default     = "3.3.4"
   mutable     = true
-  option {
-    name  = "3.3.1"
-    value = "3.3.1"
-  }
-  option {
-    name  = "3.2.4"
-    value = "3.2.4"
-  }
-  option {
-    name  = "3.1.5"
-    value = "3.1.5"
-  }
-  option {
-    name  = "3.0.7 (EOL)"
-    value = "3.0.7"
-  }
-  option {
-    name  = "3.0.2 (EOL)"
-    value = "3.0.2"
-  }
 }
 
 data "coder_parameter" "postgres_version" {
   name        = "Postgres Version"
-  description = "What version of Postgres is the database? Should match a DockerHub tag for the Postgres image. NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start"
+  description = "What version of Postgres? Must match an official mariadb image tag on DockerHub. NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start"
   icon        = "/icon/database.svg"
   type        = "string"
   default     = "15"
@@ -87,21 +76,11 @@ data "coder_parameter" "postgres_version" {
 
 data "coder_parameter" "ubuntu_version" {
   name        = "Ubuntu Version"
-  description = "Which version of Ubuntu?"
+  description = "Which version of Ubuntu? Must match a emboldcreative/base image tag on DockerHub"
   icon        = "/icon/ubuntu.svg"
   type        = "string"
-  default     = "22.04"
+  default     = "24.04"
   mutable     = true
-
-  # option {
-  #   name  = "24.04 LTS (Noble)"
-  #   value = "24.04"
-  # }
-
-  option {
-    name  = "22.04 LTS (Jammy)"
-    value = "22.04"
-  }
 }
 
 data "coder_parameter" "rails_master_key" {
@@ -118,16 +97,15 @@ resource "coder_agent" "main" {
   os                      = "linux"
   startup_script_behavior = "blocking"
   env = {
-    "APP"                  = local.app
-    "CODER_USERNAME"       = data.coder_workspace.me.owner
-    "CODER_WORKSPACE_NAME" = data.coder_workspace.me.name
-    "CODER_WORKSPACE_PORT" = 3000
-    "DEVURL"               = local.devurl
-    "GIT_AUTHOR_EMAIL"     = data.coder_workspace.me.owner_email
-    "GIT_AUTHOR_NAME"      = data.coder_workspace.me.owner
-    "GIT_COMMITTER_EMAIL"  = data.coder_workspace.me.owner_email
-    "GIT_COMMITTER_NAME"   = data.coder_workspace.me.owner
-    # "GITHUB_TOKEN"         = data.coder_git_auth.github.access_token
+    APP                  = local.app
+    CODER_USERNAME       = local.user_username
+    CODER_WORKSPACE_NAME = local.workspace_name
+    CODER_WORKSPACE_PORT = 3000
+    DEVURL               = local.dev_url
+    GIT_AUTHOR_NAME      = local.user_full_name
+    GIT_AUTHOR_EMAIL     = local.user_email
+    GIT_COMMITTER_NAME   = local.user_full_name
+    GIT_COMMITTER_EMAIL  = local.user_email
   }
   startup_script = <<-EOT
         set -e
@@ -136,7 +114,7 @@ resource "coder_agent" "main" {
 }
 
 resource "docker_volume" "home_volume" {
-  name = "coder-${lower(data.coder_workspace.me.owner)}-${lower(data.coder_workspace.me.name)}-${data.coder_workspace.me.id}-home"
+  name = "coder-${local.user_username}-${local.workspace_name}-${local.workspace_id}-home"
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all
@@ -144,26 +122,26 @@ resource "docker_volume" "home_volume" {
   # Add labels in Docker to keep track of orphan resources.
   labels {
     label = "coder.owner"
-    value = data.coder_workspace.me.owner
+    value = local.user_username
   }
   labels {
     label = "coder.owner_id"
-    value = data.coder_workspace.me.owner_id
+    value = local.user_id
   }
   labels {
     label = "coder.workspace_id"
-    value = data.coder_workspace.me.id
+    value = local.workspace_id
   }
   # This field becomes outdated if the workspace is renamed but can
   # be useful for debugging or cleaning out dangling volumes.
   labels {
     label = "coder.workspace_name_at_creation"
-    value = data.coder_workspace.me.name
+    value = local.workspace_name
   }
 }
 
 resource "docker_volume" "postgres_volume" {
-  name = "coder-${lower(data.coder_workspace.me.owner)}-${lower(data.coder_workspace.me.name)}-${data.coder_workspace.me.id}-postgres"
+  name = "coder-${local.user_username}-${local.workspace_name}-${local.workspace_id}-postgres"
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all
@@ -171,38 +149,38 @@ resource "docker_volume" "postgres_volume" {
   # Add labels in Docker to keep track of orphan resources.
   labels {
     label = "coder.owner"
-    value = data.coder_workspace.me.owner
+    value = local.user_username
   }
   labels {
     label = "coder.owner_id"
-    value = data.coder_workspace.me.owner_id
+    value = local.user_id
   }
   labels {
     label = "coder.workspace_id"
-    value = data.coder_workspace.me.id
+    value = local.workspace_id
   }
   # This field becomes outdated if the workspace is renamed but can
   # be useful for debugging or cleaning out dangling volumes.
   labels {
     label = "coder.workspace_name_at_creation"
-    value = data.coder_workspace.me.name
+    value = local.workspace_name
   }
 }
 
 resource "docker_network" "workspace" {
-  name  = "coder-${lower(data.coder_workspace.me.owner)}-${lower(data.coder_workspace.me.name)}-network"
+  name  = "coder-${local.user_username}-${local.workspace_name}-network"
   count = data.coder_workspace.me.start_count
 }
 
 resource "docker_container" "pg" {
   count        = data.coder_workspace.me.start_count
-  name         = "coder-${lower(data.coder_workspace.me.owner)}-${lower(data.coder_workspace.me.name)}-pg"
-  image        = "postgres:${data.coder_parameter.postgres_version.value}"
+  name         = "coder-${local.user_username}-${local.workspace_name}-pg"
+  image        = "postgres:${local.postgres_version}"
   hostname     = "postgres"
   network_mode = docker_network.workspace[count.index].name
   env = [
     "POSTGRES_ROOT_PASSWORD=embold",
-    "POSTGRES_DB=${local.postgres_db}",
+    "POSTGRES_DB=${local.db_name}",
     "POSTGRES_USER=embold",
     "POSTGRES_PASSWORD=embold",
   ]
@@ -214,7 +192,7 @@ resource "docker_container" "pg" {
 }
 
 data "docker_registry_image" "ruby" {
-  name = "emboldcreative/ruby:${data.coder_parameter.ruby_version.value}-ubuntu${data.coder_parameter.ubuntu_version.value}"
+  name = "emboldcreative/ruby:${local.ruby_version}-ubuntu${local.ubuntu_version}"
 }
 
 resource "docker_image" "ruby" {
@@ -226,21 +204,17 @@ resource "docker_image" "ruby" {
 resource "docker_container" "workspace" {
   count = data.coder_workspace.me.start_count
   image = docker_image.ruby.name
-  # Uses lower() to avoid Docker restriction on container names.
-  name = "coder-${data.coder_workspace.me.owner}-${lower(data.coder_workspace.me.name)}"
-  # Hostname makes the shell more user friendly: coder@my-workspace:~$
-  hostname = data.coder_workspace.me.name
-  # Use the docker gateway if the access URL is 127.0.0.1
+  name       = "coder-${local.user_username}-${local.workspace_name}"
+  hostname = local.workspace_name
   entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env = compact([
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    "PGDATABASE=${local.postgres_db}",
+    "PGDATABASE=${local.db_name}",
     "PGHOST=postgres",
     "PGPASSWORD=embold",
     "PGUSER=embold",
-    "RUBY_VERSION=${data.coder_parameter.ruby_version.value}",
-    # Set RAILS_MASTER_KEY only if param is not empty
-    "${data.coder_parameter.rails_master_key.value != "" ? "RAILS_MASTER_KEY=${data.coder_parameter.rails_master_key.value}" : ""}"
+    "RUBY_VERSION=${local.ruby_version}",
+    "${local.rails_master_key}",
   ])
   volumes {
     container_path = "/home/embold"
@@ -251,19 +225,19 @@ resource "docker_container" "workspace" {
   # Add labels in Docker to keep track of orphan resources.
   labels {
     label = "coder.owner"
-    value = data.coder_workspace.me.owner
+    value = local.user_username
   }
   labels {
     label = "coder.owner_id"
-    value = data.coder_workspace.me.owner_id
+    value = local.user_id
   }
   labels {
     label = "coder.workspace_id"
-    value = data.coder_workspace.me.id
+    value = local.workspace_id
   }
   labels {
     label = "coder.workspace_name"
-    value = data.coder_workspace.me.name
+    value = local.workspace_name
   }
 }
 
@@ -287,7 +261,7 @@ resource "coder_metadata" "container_info" {
   }
   item {
     key   = "devurl"
-    value = local.devurl
+    value = local.dev_url
   }
 }
 
@@ -305,7 +279,8 @@ module "code-server" {
 module "jetbrains_gateway" {
   source         = "https://registry.coder.com/modules/jetbrains-gateway"
   agent_id       = coder_agent.main.id
-  agent_name     = data.coder_workspace.me.name
+  agent_name     = local.workspace_name
   folder         = "/home/embold/code/${local.app}"
   jetbrains_ides = ["RM"]
+  default        = "RM"
 }

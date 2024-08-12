@@ -31,15 +31,30 @@ RUN install -d /usr/share/postgresql-common/pgdg \
     # Combine our configure scripts
     && cd /coder \
     && cat scripts/configure-ruby >> scripts/configure \
-    && ruby-build ${RUBY_VERSION} /usr/local
+    && ruby-build ${RUBY_VERSION} /usr/local \
+    && mkdir -p $GEM_HOME \
+    && chown -R embold:embold $GEM_HOME
 
 # Copy configuration files
 COPY --chmod=775 entrypoint.sh /usr/bin/
 
 USER embold
 
-RUN mkdir -p $GEM_HOME \
-    && gem install colorls /coder/pulsar-*.gem --conservative
+FROM base AS ruby3.3.4
+
+FROM base AS ruby3.2.5
+
+FROM base AS ruby3.1.6
+
+FROM base AS ruby3.0.7
+
+FROM base AS ruby2.7.8
+
+RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
+
+FROM ruby${RUBY_VERSION} AS final
+
+RUN gem install colorls /coder/pulsar-*.gem --conservative
 
 # Run before starting to remove server.pid
 ENTRYPOINT ["entrypoint.sh"]

@@ -39,6 +39,7 @@ Added GitHub Actions workflows for DockerHub and Coder template publishing, and 
 ### Fixed
 
 - Casing in dockerfile
+- Gems failing to install on Ruby 2.7.8 build
 
 [Full Changelog](https://github.com/emboldagency/docker-ruby/compare/v1.1.2...v1.2.0)
 

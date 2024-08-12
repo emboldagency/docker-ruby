@@ -36,6 +36,10 @@ Added GitHub Actions workflows for DockerHub and Coder template publishing, and 
 - Fix deprecations
 - Use locals to help avoid repetition and make it easier to change references when Coder provider makes breaking changes
 
+### Fixed
+
+- Casing in dockerfile
+
 [Full Changelog](https://github.com/emboldagency/docker-ruby/compare/v1.1.2...v1.2.0)
 
 ## [v1.1.2] - 2024-04-08

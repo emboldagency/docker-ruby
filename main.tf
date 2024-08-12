@@ -33,8 +33,8 @@ locals {
   postgres_version = data.coder_parameter.postgres_version.value
   pulsar_app_name  = data.coder_parameter.pulsar_app_name.value
   rails_master_key = data.coder_parameter.rails_master_key.value != "" ? format("RAILS_MASTER_KEY=%s", data.coder_parameter.rails_master_key.value) : ""
-  ruby_version     = local.ruby_version
-  ubuntu_version   = local.ubuntu_version
+  ruby_version     = data.coder_parameter.ruby_version
+  ubuntu_version   = data.coder_parameter.ubuntu_version.value
   user_email       = data.coder_workspace_owner.me.email
   user_full_name   = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
   user_id          = data.coder_workspace_owner.me.id

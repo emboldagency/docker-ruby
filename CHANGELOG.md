@@ -1,8 +1,42 @@
-# Change Log
+# Changelog
 
-**[Keep a Changelog](http://keepachangelog.com/) | [Semantic Versioning](http://semver.org/)**
+All notable changes to this project will be documented in this file.
 
-## [1.1.2] - 2024-04-08
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org).
+
+## [Unreleased]
+
+[What's this section for?](https://keepachangelog.com/en/1.1.0/#effort)
+
+<!-- ### Added -->
+
+<!-- ### Changed -->
+
+<!-- ### Deprecated -->
+
+<!-- ### Removed -->
+
+<!-- ### Fixed -->
+
+<!-- ### Security -->
+
+## [v1.2.0](https://github.com/emboldagency/docker-ruby/tree/v1.2.0) - 2024-08-07
+
+### Added
+
+- GitHub Actions workflows to push to DockerHub & publish the Coder template
+- Workflow can be run manually, with options to skip a job by name
+
+### Changed
+
+- Updated Coder provider
+- Updated default parameter versions
+- Fix deprecations
+- Use locals to help avoid repetition and make it easier to change references when Coder provider makes breaking changes
+
+[Full Changelog](https://github.com/emboldagency/docker-ruby/compare/v1.1.2...v1.2.0)
+
+## [v1.1.2] - 2024-04-08
 
 Ensure our gems get installed before dotfiles
 
@@ -10,7 +44,9 @@ Ensure our gems get installed before dotfiles
 
 - Move gem home creation and gem install code into base
 
-## [1.1.1] - 2024-04-05
+[Full Changelog](https://github.com/emboldagency/docker-ruby/compare/v1.1.1...v1.1.2)
+
+## [v1.1.1] - 2024-04-05
 
 Fix master key assignment
 
@@ -18,7 +54,9 @@ Fix master key assignment
 
 - Don't set rails master key if param is empty, so that config/master.key will get used instead
 
-## [1.1] - 2024-04-05
+[Full Changelog](https://github.com/emboldagency/docker-ruby/compare/v1.1.0...v1.1.1)
+
+## [v1.1.0] - 2024-04-05
 
 Added dynamic template options to customize the workspace.
 
@@ -41,6 +79,6 @@ Added dynamic template options to customize the workspace.
 - Docker Registry authentication now works using `TF_VAR` provided to the Coder stack
 - Removed stats to avoid confusion since they show the host stats instead of the stats for the workspace
 
-## [1.0] - 2023-11-17
+## [v1.0.0] - 2023-11-17
 
 Initial release

@@ -39,7 +39,7 @@ gh workflow run build-and-deploy.yml --ref $REFERENCE --field skip-jobs=$SKIP_JO
 
 ```bash
 # Set the base image version
-export UBUNTU_VERSION=22.04
+export UBUNTU_VERSION=24.04
 
 # Set the ruby version
 export RUBY_VERSION=3.3.4

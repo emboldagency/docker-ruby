@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [v1.2.0](https://github.com/emboldagency/docker-ruby/tree/v1.2.0) - 2024-08-07
 
+Added GitHub Actions workflows for DockerHub and Coder template publishing, and updated Coder provider, default parameter versions, fixed deprecations, and used locals to reduce repetition.
+
 ### Added
 
 - GitHub Actions workflows to push to DockerHub & publish the Coder template

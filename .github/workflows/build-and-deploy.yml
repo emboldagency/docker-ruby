@@ -79,8 +79,8 @@ jobs:
       - name: Build and Push Adminer Image
         uses: docker/build-push-action@v6
         with:
-          context: ./adminer
-          file: ./adminer/Dockerfile
+          context: ./build/adminer
+          file: ./build/adminer/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USER }}/adminer:latest
 

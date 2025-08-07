@@ -13,6 +13,10 @@ terraform {
 
 provider "coder" {}
 
+data "coder_external_auth" "github" {
+  id = "github"
+}
+
 provider "docker" {
   registry_auth {
     address  = "registry-1.docker.io"
@@ -32,6 +36,7 @@ locals {
   app                   = lower(try(length(local.pulsar_app_name), 0) > 0 ? local.pulsar_app_name : local.workspace_name)
   db_name               = replace(local.app, "-", "_")
   dev_url               = "https://webapp--main--${local.workspace_name}--${local.user_username}.embold.dev"
+  github_token          = data.coder_external_auth.github.access_token
   postgres_version      = data.coder_parameter.postgres_version.value
   pulsar_app_name       = data.coder_parameter.pulsar_app_name.value
   resource_name_prefix  = "coder-${local.user_username}-${local.workspace_name}"
@@ -294,6 +299,7 @@ resource "docker_container" "workspace" {
   env = compact([
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "DATABASE_URL=postgresql://embold:embold@postgres:5432/${local.db_name}",
+    "GITHUB_TOKEN=${local.github_token}",
     "HOSTNAME=${local.app}",
     "PGHOST=postgres",
     "PGDATABASE=${local.db_name}",

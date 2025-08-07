@@ -2,14 +2,16 @@ terraform {
   required_providers {
     coder = {
       source  = "coder/coder"
-      version = "~> 1.0.1"
+      version = "~> 2.5.3"
     }
     docker = {
       source  = "kreuzwerker/docker"
-      version = "~> 3.0.2"
+      version = "~> 3.6.1"
     }
   }
 }
+
+provider "coder" {}
 
 provider "docker" {
   registry_auth {
@@ -184,6 +186,33 @@ resource "docker_volume" "home_volume" {
 
 resource "docker_volume" "postgres_volume" {
   name = "${local.resource_name_prefix}-${local.workspace_id}-postgres"
+  # Protect the volume from being deleted due to changes in attributes.
+  lifecycle {
+    ignore_changes = all
+  }
+  # Add labels in Docker to keep track of orphan resources.
+  labels {
+    label = "coder.owner"
+    value = local.user_username
+  }
+  labels {
+    label = "coder.owner_id"
+    value = local.user_id
+  }
+  labels {
+    label = "coder.workspace_id"
+    value = local.workspace_id
+  }
+  # This field becomes outdated if the workspace is renamed but can
+  # be useful for debugging or cleaning out dangling volumes.
+  labels {
+    label = "coder.workspace_name_at_creation"
+    value = local.workspace_name
+  }
+}
+
+resource "docker_volume" "redis_volume" {
+  name = "${local.resource_name_prefix}-${local.workspace_id}-redis"
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all

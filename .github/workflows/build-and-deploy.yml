@@ -59,6 +59,14 @@ jobs:
             RUBY_VERSION=${{ matrix.ruby_version }}
             UBUNTU_VERSION=${{ matrix.ubuntu_version }}
 
+      - name: Build and Push Adminer Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./adminer
+          file: ./adminer/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USER }}/adminer:latest
+
   update-coder-template:
     # Conditional execution based on skip-jobs input and initialization job output
     # Only runs if skip-jobs does not contain 'update-coder-template'

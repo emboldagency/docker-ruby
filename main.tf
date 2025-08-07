@@ -288,6 +288,54 @@ resource "coder_script" "ssh_github_keys" {
   EOT
 }
 
+resource "coder_script" "homebrew" {
+  agent_id     = coder_agent.main.id
+  display_name = "Homebrew (Linuxbrew)"
+  run_on_start = true
+  icon         = "https://brew.sh/assets/img/homebrew-256x256.png"
+  script       = <<-EOT
+    set -ex
+
+    # --- Ensure Homebrew is available in this shell ---
+    if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+      eval "$('/home/linuxbrew/.linuxbrew/bin/brew' shellenv)"
+    elif command -v brew >/dev/null 2>&1; then
+      eval "$($(command -v brew) shellenv)"
+    else
+      NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+        eval "$('/home/linuxbrew/.linuxbrew/bin/brew' shellenv)"
+      else
+        echo "Homebrew install failed or brew not found. Exiting."
+        exit 1
+      fi
+    fi
+
+    # --- Add brew to PATH for current and future sessions (.profile) ---
+    if ! grep -q 'brew shellenv' /home/embold/.profile 2>/dev/null; then
+      echo 'eval "$(/home/linuxbrew/.linuxbrew/Homebrew/bin/brew shellenv)"' >> /home/embold/.profile
+    fi
+
+    # --- Add brew to PATH for current and future zsh sessions (.zshrc) ---
+    if ! grep -q 'brew shellenv' /home/embold/.zshrc 2>/dev/null; then
+      echo 'eval "$(/home/linuxbrew/.linuxbrew/Homebrew/bin/brew shellenv)"' >> /home/embold/.zshrc
+    fi
+
+    # --- Install required packages if not already installed ---
+    # for pkg in gcc caddy composer mailpit micro zoxide; do
+    for pkg in gcc caddy composer micro zoxide; do
+      if ! brew list "$pkg" >/dev/null 2>&1; then
+        brew install "$pkg"
+      else
+        echo "$pkg already installed, skipping."
+      fi
+    done
+
+    echo "Homebrew and required packages installed."
+    exit 0
+  EOT
+}
+
 module "dotfiles" {
   agent_id             = coder_agent.main.id
   count                = data.coder_workspace.me.start_count
@@ -356,9 +404,9 @@ resource "docker_volume" "postgres_volume" {
   }
 }
 
-resource "docker_volume" "redis_volume" {
-  name = "${local.resource_name_prefix}-${local.workspace_id}-redis"
-  # Protect the volume from being deleted due to changes in attributes.
+# Persistent Homebrew (Linuxbrew) volume
+resource "docker_volume" "linuxbrew_volume" {
+  name = "${local.resource_name_base}-linuxbrew"
   lifecycle {
     ignore_changes = all
   }
@@ -450,6 +498,11 @@ resource "docker_container" "workspace" {
     volume_name    = docker_volume.home_volume.name
     read_only      = false
   }
+  volumes {
+    container_path = "/home/linuxbrew"
+    volume_name    = docker_volume.linuxbrew_volume.name
+    read_only      = false
+  }
   network_mode = docker_network.workspace[count.index].name
   # Add labels in Docker to keep track of orphan resources.
   labels {
@@ -486,44 +539,147 @@ resource "coder_app" "web_app" {
   # }
 }
 
+resource "docker_image" "mailpit" {
+  name = "axllent/mailpit:latest"
+}
+
+resource "docker_volume" "mailpit_volume" {
+  name = "${local.resource_name_base}-mailpit"
+  lifecycle {
+    ignore_changes = all
+  }
+  # Add labels in Docker to keep track of orphan resources.
+  labels {
+    label = "coder.owner"
+    value = local.user_username
+  }
+  labels {
+    label = "coder.owner_id"
+    value = local.user_id
+  }
+  labels {
+    label = "coder.workspace_id"
+    value = local.workspace_id
+  }
+  # This field becomes outdated if the workspace is renamed but can
+  # be useful for debugging or cleaning out dangling volumes.
+  labels {
+    label = "coder.workspace_name_at_creation"
+    value = local.workspace_name
+  }
+}
+
+resource "docker_container" "mailpit" {
+  count        = data.coder_workspace.me.start_count
+  name         = "${local.resource_name_base}-mailpit"
+  image        = docker_image.mailpit.name
+  hostname     = "mailpit"
+  network_mode = docker_network.workspace[count.index].name
+  env = [
+    # "CODER_AGENT_TOKEN=${coder_agent.mailpit.token}",
+    "MP_API_PORT=8026",
+    "MP_DATABASE=/data/mailpit.db",
+    "MP_MAX_AGE=30d",
+    "MP_MAX_MESSAGES=5000",
+    "MP_SMTP_BIND_ADDR=0.0.0.0:1025",
+    "MU_UI_BIND_ADDR=0.0.0.0:8025",
+  ]
+  volumes {
+    container_path = "/data"
+    volume_name    = docker_volume.mailpit_volume.name
+    read_only      = false
+  }
+}
+
 resource "coder_app" "mailpit" {
   agent_id     = coder_agent.main.id
   slug         = "mailpit"
   display_name = "Mailpit"
   url          = "http://localhost:8025"
+  share        = "authenticated"
+  subdomain    = true
   icon         = "https://mailpit.axllent.org/images/mailpit.svg"
+  healthcheck {
+    url       = "http://localhost:8025"
+    interval  = 5
+    threshold = 6
+  }
   # order        = var.order
 }
 
-
 resource "docker_image" "adminer" {
-  name = "adminer:latest"
+  name = "emboldcreative/adminer:latest"
 }
+
 resource "docker_container" "adminer" {
-  name  = "labspend-adminer"
-  image = docker_image.adminer.name
-  ports {
-    internal = 8080
-    external = 8080
-  }
+  count        = data.coder_workspace.me.start_count
+  network_mode = docker_network.workspace[count.index].name
+  name         = "${local.resource_name_base}-adminer"
+  image        = docker_image.adminer.name
+  hostname     = "adminer"
+  env = [
+    "ADMINER_DEFAULT_DB=${local.db_name}",
+    "ADMINER_DEFAULT_DRIVER=pgsql",
+    "ADMINER_DEFAULT_PASSWORD=embold",
+    "ADMINER_DEFAULT_SERVER=postgres",
+    "ADMINER_DEFAULT_USERNAME=embold",
+    "ADMINER_DESIGN=pappu687",
+    "ADMINER_PLUGINS=adminer-auto-login",
+  ]
 }
+
 resource "coder_app" "adminer" {
   agent_id     = coder_agent.main.id
   slug         = "adminer"
   display_name = "Adminer"
   url          = "http://localhost:8080"
-  icon         = "https://www.adminer.org/static/images/logo.png"
-  # order        = var.order != null ? var.order + 1 : null
+  icon         = "http://www.adminer.org/favicon.ico"
+  share        = "authenticated"
+  order        = 2
+  healthcheck {
+    url       = "http://localhost:8080"
+    interval  = 5
+    threshold = 6
+  }
 }
 
-resource "coder_app" "web_app" {
+resource "coder_script" "caddy" {
   agent_id     = coder_agent.main.id
-  display_name = "Web App"
-  slug         = "webapp"
-  icon         = "/emojis/1f310.png"
-  url          = "http://localhost:3000"
-  subdomain    = true
-  share        = "public"
+  display_name = "Caddy Proxies"
+  icon         = "https://caddyserver.com/resources/images/favicon.png"
+  run_on_start = true
+  script       = <<-EOT
+    set -e
+
+    echo "Waiting for Caddy to be installed..."
+    attempts=0
+    max_attempts=60
+    while true; do
+      if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+        eval "$('/home/linuxbrew/.linuxbrew/bin/brew' shellenv)"
+      fi
+      if command -v caddy >/dev/null 2>&1 || [ -x /home/linuxbrew/.linuxbrew/bin/caddy ]; then
+        echo "Caddy found!"
+
+        # --- Start Caddy reverse proxies ---
+        echo "Starting Caddy reverse proxy for Adminer..."
+        caddy reverse-proxy --from :8080 --to http://adminer:8080 > /home/embold/.local/tmp/adminer/caddy-adminer.log 2>&1 &
+        echo "Caddy is running, reverse proxying Adminer at http://localhost:8080"
+
+        echo "Starting Caddy reverse proxy for Mailpit..."
+        caddy reverse-proxy --from :8025 --to http://mailpit:8025 > /home/embold/.local/tmp/adminer/caddy-mailpit.log 2>&1 &
+        echo "Caddy is running, reverse proxying Mailpit at http://localhost:8025"
+
+        break
+      fi
+      attempts=$((attempts+1))
+      if [ "$attempts" -ge "$max_attempts" ]; then
+        echo "Timeout: Caddy not found after $((max_attempts*2)) seconds. Please check Homebrew install."
+        exit 1
+      fi
+      sleep 2
+    done
+  EOT
 }
 
 resource "coder_metadata" "container_info" {

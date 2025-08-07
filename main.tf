@@ -36,6 +36,7 @@ locals {
   app                   = lower(try(length(local.pulsar_app_name), 0) > 0 ? local.pulsar_app_name : local.workspace_name)
   db_name               = replace(local.app, "-", "_")
   dev_url               = "https://webapp--main--${local.workspace_name}--${local.user_username}.embold.dev"
+  dotfiles_url          = data.coder_parameter.dotfiles_url.value
   github_token          = data.coder_external_auth.github.access_token
   postgres_version      = data.coder_parameter.postgres_version.value
   pulsar_app_name       = data.coder_parameter.pulsar_app_name.value
@@ -54,6 +55,12 @@ locals {
 
 variable "DOCKER_REGISTRY_PASS" {
   sensitive = true
+}
+
+data "coder_parameter" "dotfiles_url" {
+  name        = "dotfiles URL"
+  description = "GitHub repository with dotfiles"
+  mutable     = true
 }
 
 data "coder_parameter" "pulsar_app_name" {
@@ -119,6 +126,7 @@ resource "coder_agent" "main" {
     CODER_WORKSPACE_NAME  = local.workspace_name
     CODER_WORKSPACE_PORT  = 3000
     DEVURL                = local.dev_url
+    DOTFILES_URL          = local.dotfiles_url
     GIT_AUTHOR_NAME       = local.user_full_name
     GIT_AUTHOR_EMAIL      = local.user_email
     GIT_COMMITTER_NAME    = local.user_full_name

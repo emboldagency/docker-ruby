@@ -14,10 +14,6 @@ terraform {
 
 provider "coder" {}
 
-data "coder_external_auth" "github" {
-  id = "github"
-}
-
 provider "docker" {
   registry_auth {
     address  = "registry-1.docker.io"
@@ -26,42 +22,23 @@ provider "docker" {
   }
 }
 
-data "coder_provisioner" "me" {}
-
-data "coder_workspace" "me" {}
-
-data "coder_workspace_owner" "me" {}
-
-locals {
-  app                   = lower(try(length(local.pulsar_app_name), 0) > 0 ? local.pulsar_app_name : local.workspace_name)
-  db_name               = replace(local.app, "-", "_")
-  dev_url               = "https://webapp--main--${local.workspace_name}--${local.user_username}.embold.dev"
-  dotfiles_url          = data.coder_parameter.dotfiles_url.value
-  github_token          = data.coder_external_auth.github.access_token
-  postgres_version      = data.coder_parameter.postgres_version.value
-  pulsar_app_name       = data.coder_parameter.pulsar_app_name.value
-  pulsar_magic_template = data.coder_parameter.pulsar_magic_template.value
-  resource_name_prefix  = "coder-${local.user_username}-${local.workspace_name}"
-  template_version      = "v1.0.0"
-  rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
-  ruby_version          = data.coder_parameter.ruby_version.value
-  ubuntu_version        = data.coder_parameter.ubuntu_version.value
-  user_email            = data.coder_workspace_owner.me.email
-  user_full_name        = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
-  user_id               = data.coder_workspace_owner.me.id
-  user_username         = lower(data.coder_workspace_owner.me.name)
-  workspace_id          = data.coder_workspace.me.id
-  workspace_name        = lower(data.coder_workspace.me.name)
-}
-
+# --- VARIABLES ---
 variable "DOCKER_REGISTRY_PASS" {
   sensitive = true
 }
 
-data "coder_parameter" "dotfiles_url" {
-  name        = "dotfiles URL"
-  description = "GitHub repository with dotfiles"
-  mutable     = true
+# --- DATA BLOCKS ---
+data "coder_external_auth" "github" { id = "github" }
+data "coder_provisioner" "me" {}
+data "coder_workspace" "me" {}
+data "coder_workspace_owner" "me" {}
+
+data "coder_parameter" "git_clone_url" {
+  name        = "Git Clone URL"
+  description = "The HTTPS version of the Git Repo to clone."
+  type        = "string"
+  default     = ""
+  mutable     = false
 }
 
 data "coder_parameter" "pulsar_app_name" {
@@ -126,22 +103,57 @@ data "coder_parameter" "rails_master_key" {
   mutable     = true
 }
 
+data "coder_parameter" "vscode_web_theme" {
+  name        = "VS Code Web Theme"
+  description = "Which theme do you prefer for VS Code Web?"
+  icon        = "/icon/code.svg"
+  type        = "string"
+  default     = "Default Dark Modern"
+  mutable     = true
+}
+
+# --- LOCALS ---
+locals {
+  app                   = lower(try(length(local.pulsar_app_name), 0) > 0 ? local.pulsar_app_name : local.workspace_name)
+  db_hostname           = "postgres"
+  db_key                = "Postgres"
+  db_name               = replace(local.app, "-", "_")
+  db_type               = "postgres"
+  db_version            = local.postgres_version
+  dev_url               = "https://webapp--main--${local.workspace_name}--${local.user_username}.embold.dev"
+  github_token          = data.coder_external_auth.github.access_token
+  postgres_version      = coalesce(data.coder_parameter.postgres_version.value, "16")
+  pulsar_app_name       = data.coder_parameter.pulsar_app_name.value
+  pulsar_magic_template = data.coder_parameter.pulsar_magic_template.value
+  rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
+  resource_name_base    = "coder-${local.user_username}-${local.workspace_name}-${local.workspace_id}"
+  ruby_version          = data.coder_parameter.ruby_version.value
+  template_version      = "1.3.0"
+  ubuntu_version        = data.coder_parameter.ubuntu_version.value
+  user_email            = data.coder_workspace_owner.me.email
+  user_full_name        = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
+  user_id               = data.coder_workspace_owner.me.id
+  user_username         = lower(data.coder_workspace_owner.me.name)
+  workspace_id          = data.coder_workspace.me.id
+  workspace_name        = lower(data.coder_workspace.me.name)
+}
+
 resource "coder_agent" "main" {
   arch                    = data.coder_provisioner.me.arch
   os                      = "linux"
   startup_script_behavior = "blocking"
   env = {
-    APP                   = local.app
-    CODER_USERNAME        = local.user_username
-    CODER_WORKSPACE_NAME  = local.workspace_name
-    CODER_WORKSPACE_PORT  = 3000
-    DEVURL                = local.dev_url
-    DOTFILES_URL          = local.dotfiles_url
-    GIT_AUTHOR_NAME       = local.user_full_name
-    GIT_AUTHOR_EMAIL      = local.user_email
-    GIT_COMMITTER_NAME    = local.user_full_name
-    GIT_COMMITTER_EMAIL   = local.user_email
-    PULSAR_MAGIC_TEMPLATE = local.pulsar_magic_template
+    APP                    = local.app
+    CODER_TEMPLATE_VERSION = local.template_version
+    CODER_USERNAME         = local.user_username
+    CODER_WORKSPACE_NAME   = local.workspace_name
+    CODER_WORKSPACE_PORT   = 3000
+    DEVURL                 = local.dev_url
+    GIT_AUTHOR_EMAIL       = local.user_email
+    GIT_AUTHOR_NAME        = local.user_full_name
+    GIT_COMMITTER_EMAIL    = local.user_email
+    GIT_COMMITTER_NAME     = local.user_full_name
+    PULSAR_MAGIC_TEMPLATE  = local.pulsar_magic_template
   }
   metadata {
     display_name = "CPU Usage"
@@ -159,30 +171,134 @@ resource "coder_agent" "main" {
     timeout      = 1
     order        = 2
   }
-  metadata {
-    display_name = "Home Volume Size"
-    key          = "home_volume_size"
-    script       = "du -BG --apparent-size /home/embold | tail -1 | awk '{print $1}'"
-    interval     = 300
-    timeout      = 30
-    order        = 3
-  }
-  metadata {
-    display_name = "Database Size"
-    key          = "postgres_volume_size"
-    script       = "psql -U embold -d labspend -c \"SELECT pg_size_pretty(pg_database_size('labspend'));\" -t | xargs"
-    interval     = 300
-    timeout      = 30
-    order        = 4
-  }
+  # metadata {
+  #   display_name = "Home Volume Size"
+  #   key          = "home_volume_size"
+  #   script       = "du -BG --apparent-size /home/embold | tail -1 | awk '{print $1}'"
+  #   interval     = 300
+  #   timeout      = 30
+  #   order        = 3
+  # }
+  # metadata {
+  #   display_name = "Database Size"
+  #   key          = "postgres_volume_size"
+  #   script       = "psql -U embold -d labspend -c \"SELECT pg_size_pretty(pg_database_size('labspend'));\" -t | xargs"
+  #   interval     = 300
+  #   timeout      = 30
+  #   order        = 4
+  # }
   startup_script = <<-EOT
         set -e
         /bin/bash /coder/scripts/configure
     EOT
 }
 
+resource "coder_script" "ssh_github_keys" {
+  agent_id     = coder_agent.main.id
+  display_name = "SSH & GitHub Keys"
+  run_on_start = true
+  icon         = "icons/git.svg"
+  script       = <<-EOT
+    set -ex
+
+    # --- Ensure .ssh and known_hosts exist ---
+    mkdir -p /home/embold/.ssh
+    touch /home/embold/.ssh/known_hosts
+
+    # --- Always (re)add GitHub SSH host keys (idempotent) ---
+    grep -v '^github.com ' /home/embold/.ssh/known_hosts > /home/embold/.ssh/known_hosts.tmp || true
+    if curl -L https://api.github.com/meta | jq -r '.ssh_keys | .[]' | sed -e 's/^/github.com /' >>/home/embold/.ssh/known_hosts.tmp; then
+      mv /home/embold/.ssh/known_hosts.tmp /home/embold/.ssh/known_hosts
+    else
+      echo "Warning: Could not update GitHub SSH keys, continuing..."
+      rm -f /home/embold/.ssh/known_hosts.tmp
+    fi
+
+    # --- Add host keys for all our relevant hostnames and IPs for ports 2022 and 3022 ---
+    # coder.ssh.embold.net (8.42.149.40:2022)
+    keyscan_coder="$(ssh-keyscan -p 2022 -t ed25519 coder.ssh.embold.net 2>/dev/null)"
+    if [ -n "$keyscan_coder" ]; then
+      echo "$keyscan_coder" >> /home/embold/.ssh/known_hosts
+      echo "$keyscan_coder" | sed 's/coder\.ssh\.embold\.net/8.42.149.40/' >> /home/embold/.ssh/known_hosts
+    fi
+
+    # maintenance.ssh.embold.net (8.42.149.40:3022)
+    keyscan_maint="$(ssh-keyscan -p 3022 -t ed25519 maintenance.ssh.embold.net 2>/dev/null)"
+    if [ -n "$keyscan_maint" ]; then
+      echo "$keyscan_maint" >> /home/embold/.ssh/known_hosts
+      echo "$keyscan_maint" | sed 's/maintenance\.ssh\.embold\.net/8.42.149.40/' >> /home/embold/.ssh/known_hosts
+    fi
+
+    # staging.ssh.embold.net (8.42.149.41:22)
+    keyscan_staging="$(ssh-keyscan -p 22 -t ed25519 staging.ssh.embold.net 2>/dev/null)"
+    if [ -n "$keyscan_staging" ]; then
+      echo "$keyscan_staging" >> /home/embold/.ssh/known_hosts
+      echo "$keyscan_staging" | sed 's/staging\.ssh\.embold\.net/8.42.149.41/' >> /home/embold/.ssh/known_hosts
+    fi
+
+    # --- Only fetch and set up coder signing keys if not already present ---
+    if [ ! -f /home/embold/.ssh/coder ]; then
+      mkdir -p /home/embold/.config/coder-api
+      if curl --request GET \
+        --url "${data.coder_workspace.me.access_url}/api/v2/workspaceagents/me/gitsshkey" \
+        --header "Coder-Session-Token: $CODER_AGENT_TOKEN" \
+        -o /home/embold/.config/coder-api/gitsshkey.json; then
+
+        jq -r '.public_key' /home/embold/.config/coder-api/gitsshkey.json | tr -d "\n" >/home/embold/.ssh/coder.pub || true
+        echo -n " coder:$CODER_USERNAME@embold.dev" >>/home/embold/.ssh/coder.pub
+        jq -r '.private_key' /home/embold/.config/coder-api/gitsshkey.json >/home/embold/.ssh/coder || true
+
+        # Symlink to standard SSH key filenames based on key type
+        key_type=$(awk '{print $1}' /home/embold/.ssh/coder.pub)
+        case "$key_type" in
+          ssh-ed25519)
+            ln -sf /home/embold/.ssh/coder /home/embold/.ssh/id_ed25519
+            ln -sf /home/embold/.ssh/coder.pub /home/embold/.ssh/id_ed25519.pub
+            ;;
+          ssh-rsa)
+            ln -sf /home/embold/.ssh/coder /home/embold/.ssh/id_rsa
+            ln -sf /home/embold/.ssh/coder.pub /home/embold/.ssh/id_rsa.pub
+            ;;
+          ecdsa-sha2-nistp256)
+            ln -sf /home/embold/.ssh/coder /home/embold/.ssh/id_ecdsa
+            ln -sf /home/embold/.ssh/coder.pub /home/embold/.ssh/id_ecdsa.pub
+            ;;
+        esac
+
+        # --- Commit signing setup ---
+        mkdir -p /home/embold/.ssh/git-commit-signing
+        cp /home/embold/.ssh/coder.pub /home/embold/.ssh/git-commit-signing || true
+
+        chmod 0700 "/home/embold/.ssh" "/home/embold/.ssh/git-commit-signing" || true
+        chmod 600 /home/embold/.ssh/* /home/embold/.ssh/git-commit-signing/* /home/embold/.config/coder-api/gitsshkey.json || true
+
+        git config --global gpg.format ssh || true
+        git config --global commit.gpgsign true || true
+        git config --global user.signingkey ~/.ssh/coder || true
+      else
+        echo "Warning: Could not fetch coder signing keys, continuing..."
+      fi
+    else
+      # If coder key exists, just fix permissions
+      sudo chmod 0700 "/home/embold/.ssh"
+      sudo chmod 600 /home/embold/.ssh/*
+    fi
+
+    exit 0
+  EOT
+}
+
+module "dotfiles" {
+  agent_id             = coder_agent.main.id
+  count                = data.coder_workspace.me.start_count
+  source               = "registry.coder.com/coder/dotfiles/coder"
+  version              = "1.2.1"
+  default_dotfiles_uri = "git@github.com:emboldagency/dotfiles.git"
+  # user = "embold"
+}
+
 resource "docker_volume" "home_volume" {
-  name = "${local.resource_name_prefix}-${local.workspace_id}-home"
+  name = "${local.resource_name_base}-home"
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all
@@ -197,11 +313,17 @@ resource "docker_volume" "home_volume" {
     value = local.user_id
   }
   labels {
+    label = "coder.username"
+    value = local.user_username
+  }
+  labels {
+    label = "coder.owner_id"
+    value = local.user_id
+  }
+  labels {
     label = "coder.workspace_id"
     value = local.workspace_id
   }
-  # This field becomes outdated if the workspace is renamed but can
-  # be useful for debugging or cleaning out dangling volumes.
   labels {
     label = "coder.workspace_name_at_creation"
     value = local.workspace_name
@@ -209,8 +331,7 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_volume" "postgres_volume" {
-  name = "${local.resource_name_prefix}-${local.workspace_id}-postgres"
-  # Protect the volume from being deleted due to changes in attributes.
+  name = "${local.resource_name_base}-postgres"
   lifecycle {
     ignore_changes = all
   }
@@ -263,13 +384,13 @@ resource "docker_volume" "redis_volume" {
 }
 
 resource "docker_network" "workspace" {
-  name  = "${local.resource_name_prefix}-network"
+  name  = "${local.resource_name_base}-network"
   count = data.coder_workspace.me.start_count
 }
 
 resource "docker_container" "postgres" {
   count        = data.coder_workspace.me.start_count
-  name         = "${local.resource_name_prefix}-postgres"
+  name         = "${local.resource_name_base}-postgres"
   image        = "postgres:${local.postgres_version}"
   hostname     = "postgres"
   network_mode = docker_network.workspace[count.index].name
@@ -285,22 +406,19 @@ resource "docker_container" "postgres" {
   }
   healthcheck {
     test = [
-      "CMD-SHELL", "pg_isready", "-q", "-d labspend", "-U embold",
+      "CMD-SHELL", "pg_isready -q -d ${local.db_name} -U embold"
     ]
     interval = "30s"
     timeout  = "5s"
     retries  = 3
   }
-  ports {
-    internal = 5432
-    external = 5432
-  }
-
-  restart = "unless-stopped"
+  # entrypoint = [
+  #   "sh", "-c", "coder agent --token $CODER_AGENT_TOKEN & exec docker-entrypoint.sh postgres"
+  # ]
 }
 
 data "docker_registry_image" "ruby" {
-  name = "emboldcreative/ruby:${local.ruby_version}-ubuntu${local.ubuntu_version}"
+  name = "emboldcreative/ruby:${local.ruby_version}-ubuntu${local.ubuntu_version}-release${local.template_version}"
 }
 
 resource "docker_image" "ruby" {
@@ -312,7 +430,7 @@ resource "docker_image" "ruby" {
 resource "docker_container" "workspace" {
   count      = data.coder_workspace.me.start_count
   image      = docker_image.ruby.name
-  name       = local.resource_name_prefix
+  name       = local.resource_name_base
   hostname   = local.workspace_name
   entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env = compact([
@@ -350,6 +468,22 @@ resource "docker_container" "workspace" {
     label = "coder.workspace_name"
     value = local.workspace_name
   }
+}
+
+resource "coder_app" "web_app" {
+  agent_id     = coder_agent.main.id
+  display_name = "Web App"
+  slug         = "webapp"
+  icon         = "/emojis/1f310.png"
+  url          = "http://localhost:443"
+  subdomain    = true
+  share        = "public"
+  order        = 1
+  # healthcheck {
+  #   url       = "http://localhost:443"
+  #   interval  = 5
+  #   threshold = 6
+  # }
 }
 
 resource "coder_app" "mailpit" {
@@ -400,8 +534,8 @@ resource "coder_metadata" "container_info" {
     value = local.ruby_version
   }
   item {
-    key   = "Postgres"
-    value = local.postgres_version
+    key   = local.db_key
+    value = local.db_version
   }
   item {
     key   = "Ubuntu"
@@ -411,17 +545,38 @@ resource "coder_metadata" "container_info" {
     key   = "Image"
     value = basename(docker_image.ruby.name)
   }
+  item {
+    key   = "Template"
+    value = local.template_version
+  }
 }
 
 module "code-server" {
   display_name = "VS Code Web"
-  source       = "https://registry.coder.com/modules/code-server"
+  source       = "registry.coder.com/coder/code-server/coder"
   agent_id     = coder_agent.main.id
   folder       = "/home/embold/code/${local.app}"
   extensions   = []
   settings = {
-    "workbench.colorTheme" : "Default Dark Modern"
+    "workbench.colorTheme" : data.coder_parameter.vscode_web_theme.value
   }
+}
+
+module "git-clone" {
+  count       = data.coder_workspace.me.start_count
+  source      = "registry.coder.com/coder/git-clone/coder"
+  version     = "1.1.0"
+  agent_id    = coder_agent.main.id
+  url         = data.coder_parameter.git_clone_url.value
+  folder_name = local.app
+  base_dir    = "/home/embold/code"
+}
+
+module "git-config" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/git-config/coder"
+  version  = "1.0.15"
+  agent_id = coder_agent.main.id
 }
 
 module "jetbrains" {

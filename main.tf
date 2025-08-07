@@ -209,6 +209,7 @@ resource "docker_container" "workspace" {
   entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env = compact([
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
+    "DATABASE_URL=postgresql://embold:embold@postgres:5432/${local.db_name}",
     "PGDATABASE=${local.db_name}",
     "PGHOST=postgres",
     "PGPASSWORD=embold",
@@ -239,6 +240,36 @@ resource "docker_container" "workspace" {
     label = "coder.workspace_name"
     value = local.workspace_name
   }
+}
+
+resource "coder_app" "mailpit" {
+  agent_id     = coder_agent.main.id
+  slug         = "mailpit"
+  display_name = "Mailpit"
+  url          = "http://localhost:8025"
+  icon         = "https://mailpit.axllent.org/images/mailpit.svg"
+  # order        = var.order
+}
+
+
+resource "docker_image" "adminer" {
+  name = "adminer:latest"
+}
+resource "docker_container" "adminer" {
+  name  = "labspend-adminer"
+  image = docker_image.adminer.name
+  ports {
+    internal = 8080
+    external = 8080
+  }
+}
+resource "coder_app" "adminer" {
+  agent_id     = coder_agent.main.id
+  slug         = "adminer"
+  display_name = "Adminer"
+  url          = "http://localhost:8080"
+  icon         = "https://www.adminer.org/static/images/logo.png"
+  # order        = var.order != null ? var.order + 1 : null
 }
 
 resource "coder_app" "web_app" {

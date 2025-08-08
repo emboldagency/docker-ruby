@@ -40,6 +40,8 @@ RUN --mount=type=secret,id=GH_PACKAGES_TOKEN \
     mkdir -p $GEM_HOME && \
     chown -R embold:embold $GEM_HOME && \
     # --- Install Ruby gems with GitHub authentication ---
+    mkdir -p /home/embold/.gem && \
+    chown -R embold:embold /home/embold/.gem && \
     echo -e "---\n:github: Bearer ${GH_PACKAGES_TOKEN}" > /home/embold/.gem/credentials && \
     chmod 0600 /home/embold/.gem/credentials && \
     mkdir -p /home/embold/.gems/${RUBY_VERSION} && \
@@ -47,7 +49,7 @@ RUN --mount=type=secret,id=GH_PACKAGES_TOKEN \
     su embold -c "gem sources --add https://${GH_USERNAME}:${GH_PACKAGES_TOKEN}@rubygems.pkg.github.com/emboldagency/" && \
     su embold -c "GEM_HOME=/home/embold/.gems/${RUBY_VERSION} gem install colorls --conservative" && \
     su embold -c "GEM_HOME=/home/embold/.gems/${RUBY_VERSION} gem install pulsar-embold --source https://rubygems.pkg.github.com/emboldagency --conservative" && \
-    rm -f /home/embold/.gem/credentials && \
+    rm -f /home/embold/.gem/credentials 2>/dev/null && \
     rm -rf /home/embold/.gems/${RUBY_VERSION}/cache
 
 # Copy configuration files

@@ -60,6 +60,8 @@ jobs:
           build-args: |
             RUBY_VERSION=${{ matrix.ruby_version }}
             UBUNTU_VERSION=${{ matrix.ubuntu_version }}
+          secrets: |
+            GH_PACKAGES_TOKEN=${{ secrets.GH_PACKAGES_TOKEN }}
 
   build-and-push-adminer:
     if: ${{ !contains(github.event.inputs['skip-jobs'], 'build-and-push-adminer') }}
@@ -89,6 +91,8 @@ jobs:
             ${{ secrets.DOCKER_USER }}/adminer:${{ github.ref_name }}
           build-args: |
             ADMINER_VERSION=latest
+          secrets: |
+            GH_PACKAGES_TOKEN=${{ secrets.GH_PACKAGES_TOKEN }}
 
   update-coder-template:
     # Conditional execution based on skip-jobs input and initialization job output

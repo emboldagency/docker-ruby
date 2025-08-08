@@ -4,6 +4,8 @@ ARG UBUNTU_VERSION=24.04 \
 FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS base
 
 ARG RUBY_VERSION
+ARG GH_USERNAME
+ENV GH_USERNAME=${GH_USERNAME}
 
 ENV BUNDLE_APP_CONFIG=/home/embold/.gems/${RUBY_VERSION} \
     GEM_HOME=/home/embold/.gems/${RUBY_VERSION} \

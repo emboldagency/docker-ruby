@@ -199,7 +199,7 @@ resource "coder_script" "ssh_github_keys" {
   run_on_start = true
   icon         = "icons/git.svg"
   script       = <<-EOT
-    set -ex
+    set -e
 
     # --- Ensure .ssh and known_hosts exist ---
     mkdir -p /home/embold/.ssh
@@ -294,7 +294,7 @@ resource "coder_script" "homebrew" {
   run_on_start = true
   icon         = "https://brew.sh/assets/img/homebrew-256x256.png"
   script       = <<-EOT
-    set -ex
+    set -e
 
     # --- Ensure Homebrew is available in this shell ---
     if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then

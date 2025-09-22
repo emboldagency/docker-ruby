@@ -3,6 +3,22 @@
 ARG UBUNTU_VERSION=24.04 \
     RUBY_VERSION=3.4.6
 
+# Builder stage: install build deps and compile Ruby
+FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS builder
+
+ARG RUBY_VERSION
+
+RUN --mount=type=cache,target=/var/cache/apt/archives \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libjpeg-dev \
+    libtiff-dev \
+    libwebp-dev \
+    libpq-dev && \
+    # compile Ruby using ruby-build available in base image
+    ruby-build ${RUBY_VERSION} /usr/local && \
+    rm -rf /var/lib/apt/lists/*
+
 FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS base
 
 ARG RUBY_VERSION
@@ -20,6 +36,7 @@ USER root
 
 COPY --chown=embold:embold --chmod=774 build/coder /coder
 
+# Final runtime image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
 RUN --mount=type=cache,target=/var/cache/apt/archives \
     install -d /usr/share/postgresql-common/pgdg && \
@@ -28,10 +45,6 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
     apt-get update && \
     printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d && \
     apt-get install -y -q --no-install-recommends \
-    libjpeg-dev \
-    libpq-dev \
-    libtiff-dev \
-    libwebp-dev \
     postgresql-client \
     rm -rf /var/lib/apt/lists/* && \
     # prune locales to keep only en_US to avoid copying unnecessary locale data into runtime
@@ -41,8 +54,6 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
     # Combine our configure scripts
     cd /coder && \
     cat scripts/configure-ruby >> scripts/configure && \
-    # Install Ruby
-    ruby-build ${RUBY_VERSION} /usr/local && \
     rm -rf /home/embold/.gems/${RUBY_VERSION}/cache
 
 # Copy configuration files
@@ -50,22 +61,28 @@ COPY --chmod=775 build/entrypoint.sh /usr/bin/entrypoint.sh
 
 USER embold
 
+
 FROM base AS ruby3.3.9
+COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby3.3.4
+COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby3.2.5
+COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby3.1.6
+COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby3.0.7
+COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby2.7.8
-
+COPY --from=builder /usr/local /usr/local
 RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
 
 FROM ruby${RUBY_VERSION} AS final
-
+ARG RUBY_VERSION
 RUN mkdir -p $GEM_HOME && \
     mkdir -p /home/embold/.gems/${RUBY_VERSION} && \
     gem install specific_install && \

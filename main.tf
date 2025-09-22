@@ -550,7 +550,7 @@ resource "coder_app" "web_app" {
   display_name = "Web App"
   slug         = "webapp"
   icon         = "/emojis/1f310.png"
-  url          = "http://localhost:443"
+  url          = "http://localhost:3000"
   subdomain    = true
   share        = "public"
   order        = 1

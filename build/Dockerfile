@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.4
+
 ARG UBUNTU_VERSION=24.04 \
     RUBY_VERSION=3.4.6
 
@@ -5,29 +7,37 @@ FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS base
 
 ARG RUBY_VERSION
 
-ENV BUNDLE_APP_CONFIG=/home/embold/.gems/${RUBY_VERSION} \
+ENV LANG=en_US.utf8 \
+    TZ=UTC \
+    DATE_TIMEZONE=UTC \
+    DEBIAN_FRONTEND=noninteractive \
+    # Ruby environment
+    BUNDLE_APP_CONFIG=/home/embold/.gems/${RUBY_VERSION} \
     GEM_HOME=/home/embold/.gems/${RUBY_VERSION} \
     PATH=$PATH:/home/embold/.gems/${RUBY_VERSION}/bin
 
 USER root
 
-COPY --chown=embold:embold --chmod=774 coder /coder
+COPY --chown=embold:embold --chmod=774 build/coder /coder
 
-# Install requirements
-RUN install -d /usr/share/postgresql-common/pgdg && \
+# Install requirements with BuildKit cache mounts and transient policy to avoid starting services
+RUN --mount=type=cache,target=/var/cache/apt/archives \
+    install -d /usr/share/postgresql-common/pgdg && \
     curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
     sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
     apt-get update && \
+    printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d && \
     apt-get install -y -q --no-install-recommends \
-    imagemagick \
     libjpeg-dev \
     libpq-dev \
     libtiff-dev \
-    libvips \
     libwebp-dev \
     postgresql-client \
-    tzdata && \
     rm -rf /var/lib/apt/lists/* && \
+    # prune locales to keep only en_US to avoid copying unnecessary locale data into runtime
+    if [ -d /usr/share/locale ]; then find /usr/share/locale -maxdepth 1 -mindepth 1 ! -name 'en_US' -exec rm -rf {} + || true; fi && \
+    rm -rf /var/lib/apt/lists/* /usr/share/man/* /usr/share/doc/* /usr/share/doc-base/* && \
+    rm -f /usr/sbin/policy-rc.d && \
     # Combine our configure scripts
     cd /coder && \
     cat scripts/configure-ruby >> scripts/configure && \
@@ -36,7 +46,7 @@ RUN install -d /usr/share/postgresql-common/pgdg && \
     rm -rf /home/embold/.gems/${RUBY_VERSION}/cache
 
 # Copy configuration files
-COPY --chmod=775 entrypoint.sh /usr/bin/
+COPY --chmod=775 build/entrypoint.sh /usr/bin/entrypoint.sh
 
 USER embold
 

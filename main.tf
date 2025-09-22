@@ -94,6 +94,26 @@ data "coder_parameter" "ubuntu_version" {
   }
 }
 
+data "coder_parameter" "timezone" {
+  name        = "Timezone"
+  description = "Set the container timezone for the workspace."
+  type        = "string"
+  default     = "America/New_York"
+  mutable     = true
+  option {
+    name  = "UTC"
+    value = "UTC"
+  }
+  option {
+    name  = "America/New_York (Eastern)"
+    value = "America/New_York"
+  }
+  option {
+    name  = "America/Los_Angeles (Pacific)"
+    value = "America/Los_Angeles"
+  }
+}
+
 data "coder_parameter" "rails_master_key" {
   name        = "Rails Master Key"
   description = "Enter the rails master key to use for encrypted credentials. This will set the RAILS_MASTER_KEY environment variable."
@@ -130,6 +150,7 @@ locals {
   ruby_version          = data.coder_parameter.ruby_version.value
   template_version      = "1.3.0"
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
+  timezone              = coalesce(data.coder_parameter.timezone.value, "UTC")
   user_email            = data.coder_workspace_owner.me.email
   user_full_name        = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
   user_id               = data.coder_workspace_owner.me.id
@@ -154,6 +175,7 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_EMAIL    = local.user_email
     GIT_COMMITTER_NAME     = local.user_full_name
     PULSAR_MAGIC_TEMPLATE  = local.pulsar_magic_template
+    TZ                     = local.timezone
   }
   metadata {
     display_name = "CPU Usage"

@@ -44,7 +44,18 @@ export UBUNTU_VERSION=24.04
 export RUBY_VERSION=3.3.4
 
 # Build the image
-docker build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} --build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build
+# Simple build (recommended for normal use):
+docker buildx build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} \
+	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
+
+# If you need full BuildKit output (useful for debugging) you have two options:
+# 1) Add `--progress=plain` to stream the BuildKit output to your terminal:
+docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} \
+	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
+
+# 2) Or set `DOCKER_BUILDKIT=1` and pipe to `tee` to capture a permanent log file:
+DOCKER_BUILDKIT=1 docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} \
+	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load 2>&1 | tee build.log
 
 # Push the image to the registry
 docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}

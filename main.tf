@@ -64,7 +64,7 @@ data "coder_parameter" "ruby_version" {
   description = "Which version of Ruby? Must match a emboldcreative/ruby image tag on DockerHub"
   icon        = "/icon/ruby.png"
   type        = "string"
-  default     = "3.3.4"
+  default     = "3.4.6"
   mutable     = true
 }
 

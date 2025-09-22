@@ -33,8 +33,17 @@ jobs:
     needs: initialization
     strategy:
       matrix:
-        ruby_version: ["3.3.9", "3.3.4", "3.2.5", "3.1.6", "3.0.7", "2.7.8"]
-        ubuntu_version: ["24.04", "22.04"]
+        ruby_version:
+          - 3.4.6
+          - 3.3.9
+          - 3.3.4
+          - 3.2.9
+          - 3.1.7
+          - 3.0.7
+          - 2.7.8
+        ubuntu_version:
+          - 24.04
+          - 22.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -100,7 +109,9 @@ jobs:
     # OR build-and-push-docker job is successful
     if: ${{ !contains(github.event.inputs['skip-jobs'], 'update-coder-template') || needs.initialization.outputs.skip-build-and-push-docker == 'true' || success() }}
     runs-on: ubuntu-latest
-    needs: [initialization, build-and-push-docker]
+    needs:
+      - initialization
+      - build-and-push-docker
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

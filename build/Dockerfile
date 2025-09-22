@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=24.04 \
-    RUBY_VERSION=3.3.4
+    RUBY_VERSION=3.4.6
 
 FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS base
 

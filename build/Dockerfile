@@ -44,13 +44,18 @@ COPY --chown=embold:embold --chmod=774 coder /coder
 # Final runtime image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
 RUN --mount=type=cache,target=/var/cache/apt/archives \
-    install -d /usr/share/postgresql-common/pgdg && \
+    # remove any stale locks and ensure apt/dpkg directories exist
+    rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock || true && \
+    mkdir -p /var/cache/apt/archives /var/lib/apt/lists /var/lib/dpkg /usr/share/postgresql-common/pgdg && \
+    chmod 0755 /var/cache/apt/archives /var/lib/apt/lists /var/lib/dpkg && \
+    dpkg --configure -a || true && \
+    # add PostgreSQL apt repo key and source
     curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
     sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
-    apt-get update && \
+    # retry apt-get update/install a few times to avoid transient lock race conditions in BuildKit
+    (for i in 1 2 3 4 5; do apt-get update && break || sleep 1; done) && \
     printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d && \
-    apt-get install -y -q --no-install-recommends \
-    postgresql-client && \
+    (for i in 1 2 3 4 5; do apt-get install -y -q --no-install-recommends postgresql-client && break || sleep 1; done) && \
     rm -rf /var/lib/apt/lists/* && \
     # prune locales to keep only en_US to avoid copying unnecessary locale data into runtime
     if [ -d /usr/share/locale ]; then find /usr/share/locale -maxdepth 1 -mindepth 1 ! -name 'en_US' -exec rm -rf {} + || true; fi && \

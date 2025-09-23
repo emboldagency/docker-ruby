@@ -61,17 +61,16 @@ COPY --chmod=775 build/entrypoint.sh /usr/bin/entrypoint.sh
 
 USER embold
 
+FROM base AS ruby3.4.6
+COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby3.3.9
 COPY --from=builder /usr/local /usr/local
 
-FROM base AS ruby3.3.4
+FROM base AS ruby3.2.9
 COPY --from=builder /usr/local /usr/local
 
-FROM base AS ruby3.2.5
-COPY --from=builder /usr/local /usr/local
-
-FROM base AS ruby3.1.6
+FROM base AS ruby3.1.7
 COPY --from=builder /usr/local /usr/local
 
 FROM base AS ruby3.0.7
@@ -81,8 +80,9 @@ FROM base AS ruby2.7.8
 COPY --from=builder /usr/local /usr/local
 RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
 
-FROM ruby${RUBY_VERSION} AS final
+FROM base AS final
 ARG RUBY_VERSION
+COPY --from=builder /usr/local /usr/local
 RUN mkdir -p $GEM_HOME && \
     mkdir -p /home/embold/.gems/${RUBY_VERSION} && \
     gem install specific_install && \

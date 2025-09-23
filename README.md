@@ -41,7 +41,7 @@ gh workflow run build-and-deploy.yml --ref $REFERENCE --field skip-jobs=$SKIP_JO
 export UBUNTU_VERSION=24.04
 
 # Set the ruby version
-export RUBY_VERSION=3.3.4
+export RUBY_VERSION=3.4.6
 
 # Build the image
 # Simple build (recommended for normal use):

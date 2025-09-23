@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
     apt-get update && \
     printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d && \
     apt-get install -y -q --no-install-recommends \
-    postgresql-client \
+    postgresql-client && \
     rm -rf /var/lib/apt/lists/* && \
     # prune locales to keep only en_US to avoid copying unnecessary locale data into runtime
     if [ -d /usr/share/locale ]; then find /usr/share/locale -maxdepth 1 -mindepth 1 ! -name 'en_US' -exec rm -rf {} + || true; fi && \

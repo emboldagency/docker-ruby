@@ -8,6 +8,11 @@ FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS builder
 
 ARG RUBY_VERSION
 
+USER root
+
+# Avoid interactive prompts during package installs
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN --mount=type=cache,target=/var/cache/apt/archives \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -34,7 +39,7 @@ ENV LANG=en_US.utf8 \
 
 USER root
 
-COPY --chown=embold:embold --chmod=774 build/coder /coder
+COPY --chown=embold:embold --chmod=774 coder /coder
 
 # Final runtime image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
@@ -57,7 +62,7 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
     rm -rf /home/embold/.gems/${RUBY_VERSION}/cache
 
 # Copy configuration files
-COPY --chmod=775 build/entrypoint.sh /usr/bin/entrypoint.sh
+COPY --chmod=775 entrypoint.sh /usr/bin/entrypoint.sh
 
 USER embold
 

@@ -14,7 +14,8 @@ icon: /icon/docker.png
 ## Automated Builds
 
 GitHub Actions is configured to:
-- automatically build and push the base images to DockerHub 
+
+- automatically build and push the base images to DockerHub
 - push the updated templates to Coder when a new version tag is created on GitHub
 
 The jobs are defined in [build-and-deploy.yml](.github/workflows/build-and-deploy.yml)
@@ -43,22 +44,25 @@ export UBUNTU_VERSION=24.04
 # Set the ruby version
 export RUBY_VERSION=3.4.6
 
+# Set the template version used by our CI and release tags
+export TEMPLATE_VERSION=1.3.0
+
 # Build the image
-# Simple build (recommended for normal use):
-docker buildx build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} \
+# Simple build:
+docker buildx build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
 
 # If you need full BuildKit output (useful for debugging) you have two options:
 # 1) Add `--progress=plain` to stream the BuildKit output to your terminal:
-docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} \
+docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
 
 # 2) Or set `DOCKER_BUILDKIT=1` and pipe to `tee` to capture a permanent log file:
-DOCKER_BUILDKIT=1 docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION} \
+DOCKER_BUILDKIT=1 docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load 2>&1 | tee build.log
 
 # Push the image to the registry
-docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}
+docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION}
 ```
 
 ## Coder Template Updates
@@ -69,4 +73,8 @@ To manually run the job without pushing a release tag, or to skip the build step
 
 ### Manual Template Updates
 
-Commit and push any changes to git, then do `coder templates push ruby` to push the template up to Coder.
+Commit and push any changes to git, then use the coder cli to push the template up to Coder.
+
+```bash
+coder templates push ruby --name ${TEMPLATE_VERSION}
+```

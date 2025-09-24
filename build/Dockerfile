@@ -16,6 +16,17 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt/archives \
     apt-get update && \
     apt-get install -y --no-install-recommends \
+    autoconf \
+    bison \
+    build-essential \
+    libssl-dev \
+    libreadline-dev \
+    zlib1g-dev \
+    libyaml-dev \
+    libffi-dev \
+    libgdbm-dev \
+    libncurses-dev \
+    libsqlite3-dev \
     libjpeg-dev \
     libtiff-dev \
     libwebp-dev \
@@ -32,14 +43,17 @@ ENV LANG=en_US.utf8 \
     TZ=UTC \
     DATE_TIMEZONE=UTC \
     DEBIAN_FRONTEND=noninteractive \
-    # Ruby environment
-    BUNDLE_APP_CONFIG=/home/embold/.gems/${RUBY_VERSION} \
-    GEM_HOME=/home/embold/.gems/${RUBY_VERSION} \
-    PATH=$PATH:/home/embold/.gems/${RUBY_VERSION}/bin
+    # Ruby environment (canonical: ~/.gem/ruby/<version>)
+    BUNDLE_APP_CONFIG=/home/embold/.gem/ruby/${RUBY_VERSION} \
+    GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION} \
+    GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION} \
+    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:$PATH
 
 USER root
 
-COPY --chown=embold:embold --chmod=774 coder /coder
+# Allow building from either repo root (pass CONTEXT_PREFIX=build/) or from the build/ directory (default empty)
+ARG CONTEXT_PREFIX=""
+COPY --chown=embold:embold --chmod=774 ${CONTEXT_PREFIX}coder /coder
 
 # Final runtime image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
@@ -64,10 +78,17 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
     # Combine our configure scripts
     cd /coder && \
     cat scripts/configure-ruby >> scripts/configure && \
-    rm -rf /home/embold/.gems/${RUBY_VERSION}/cache
+    if [ -d /home/embold/.gems/${RUBY_VERSION}/cache ]; then find /home/embold/.gems/${RUBY_VERSION}/cache -mindepth 1 -delete || true; fi
+
+# Ensure env is available for login and non-login shells
+RUN printf 'export GEM_HOME=%s\nexport GEM_PATH=%s\nexport PATH=%s/bin:$PATH\n' \
+    "/home/embold/.gem/ruby/${RUBY_VERSION}" \
+    "/home/embold/.gem/ruby/${RUBY_VERSION}" \
+    "/home/embold/.gem/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
+    chmod 0755 /etc/profile.d/embold-gems.sh
 
 # Copy configuration files
-COPY --chmod=775 entrypoint.sh /usr/bin/entrypoint.sh
+COPY --chmod=775 ${CONTEXT_PREFIX}entrypoint.sh /usr/bin/entrypoint.sh
 
 USER embold
 
@@ -90,15 +111,27 @@ FROM base AS ruby2.7.8
 COPY --from=builder /usr/local /usr/local
 RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
 
+FROM builder AS ruby_gems
+ARG RUBY_VERSION
+ENV GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION}
+ENV PATH=$GEM_HOME/bin:/usr/local/bin:$PATH
+RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/home/embold/.gem/ruby/${RUBY_VERSION}/cache \
+    mkdir -p $GEM_HOME && \
+    echo 'gem: --no-document' > /etc/gemrc && \
+    gem update --system && \
+    gem install --no-document --install-dir "$GEM_HOME" --bindir "$GEM_HOME/bin" bundler && \
+    gem install --no-document --install-dir "$GEM_HOME" --bindir "$GEM_HOME/bin" rails && \
+    # Remove duplicate binstubs that `gem update --system` may have placed in /usr/local/bin
+    # Keep /usr/local/bin/gem to avoid breaking RubyGems tooling
+    rm -f /usr/local/bin/bundle /usr/local/bin/bundler || true && \
+    if [ -d "$GEM_HOME/cache" ]; then find "$GEM_HOME/cache" -mindepth 1 -delete || true; fi
+
 FROM base AS final
 ARG RUBY_VERSION
 COPY --from=builder /usr/local /usr/local
-RUN mkdir -p $GEM_HOME && \
-    mkdir -p /home/embold/.gems/${RUBY_VERSION} && \
-    gem install specific_install && \
-    gem specific_install https://github.com/emboldagency/pulsar-embold.git && \
-    gem install colorls && \
-    rm -rf /home/embold/.gems/${RUBY_VERSION}/cache
+# Copy prepared gems from the ruby_gems stage into our runtime image (canonical ~/.gem)
+COPY --chown=embold:embold --from=ruby_gems /home/embold/.gem /home/embold/.gem
+RUN chown -R embold:embold /home/embold/.gem || true
 
 # Run before starting to remove server.pid
 ENTRYPOINT ["entrypoint.sh"]

@@ -474,8 +474,7 @@ module "dotfiles" {
   count                = data.coder_workspace.me.start_count
   source               = "registry.coder.com/coder/dotfiles/coder"
   version              = "1.2.1"
-  default_dotfiles_uri = "git@github.com:emboldagency/dotfiles.git"
-  # user = "embold"
+  default_dotfiles_uri = ""
 }
 
 module "code-server" {

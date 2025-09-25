@@ -168,7 +168,7 @@ locals {
   rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
   resource_name_base    = "coder-${local.user_username}-${local.workspace_name}-${local.workspace_id}"
   ruby_version          = data.coder_parameter.ruby_version.value
-  template_version      = "1.3.0"
+  template_version      = "1.4.0"
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
   timezone              = coalesce(data.coder_parameter.timezone.value, "UTC")
   user_email            = data.coder_workspace_owner.me.email

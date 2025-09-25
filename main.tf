@@ -669,6 +669,25 @@ resource "docker_image" "ruby" {
 #   count = data.coder_workspace.me.start_count
 # }
 
+data "docker_registry_image" "adminer" {
+  name = "emboldcreative/adminer-coder:latest"
+}
+
+resource "docker_image" "adminer" {
+  name          = data.docker_registry_image.adminer.name
+  pull_triggers = [data.docker_registry_image.adminer.sha256_digest]
+  keep_locally  = true
+}
+
+data "docker_registry_image" "mailpit" {
+  name = "emboldcreative/mailpit-coder:latest"
+}
+
+resource "docker_image" "mailpit" {
+  name          = data.docker_registry_image.mailpit.name
+  pull_triggers = [data.docker_registry_image.mailpit.sha256_digest]
+  keep_locally  = true
+}
 
 # =============================================================================
 # DOCKER CONTAINERS
@@ -678,6 +697,7 @@ resource "docker_container" "postgres" {
   name         = "${local.resource_name_base}-postgres"
   image        = "postgres:${local.postgres_version}"
   hostname     = "postgres"
+  entrypoint = ["sh", "-c", replace(coder_agent.postgres.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   network_mode = docker_network.workspace[count.index].name
   env = [
     "POSTGRES_DB=${local.db_name}",
@@ -793,6 +813,23 @@ resource "docker_container" "workspace" {
 #   }
 # }
 
+resource "docker_container" "adminer" {
+  count        = data.coder_workspace.me.start_count
+  network_mode = docker_network.workspace[count.index].name
+  name         = "${local.resource_name_base}-adminer"
+  image        = docker_image.adminer.name
+  hostname     = "adminer"
+  entrypoint = ["sh", "-c", replace(coder_agent.adminer.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
+  env = [
+    "CODER_AGENT_TOKEN=${coder_agent.adminer.token}",
+    "ADMINER_DEFAULT_DB=${local.db_name}",
+    "ADMINER_DEFAULT_DRIVER=pgsql",
+    "ADMINER_DEFAULT_PASSWORD=embold",
+    "ADMINER_DEFAULT_SERVER=postgres",
+    "ADMINER_DEFAULT_USERNAME=embold",
+    "ADMINER_DESIGN=pappu687",
+    "ADMINER_PLUGINS=adminer-auto-login",
+  ]
 }
 
 resource "docker_container" "mailpit" {
@@ -800,9 +837,10 @@ resource "docker_container" "mailpit" {
   name         = "${local.resource_name_base}-mailpit"
   image        = docker_image.mailpit.name
   hostname     = "mailpit"
+  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   network_mode = docker_network.workspace[count.index].name
   env = [
-    # "CODER_AGENT_TOKEN=${coder_agent.mailpit.token}",
+    "CODER_AGENT_TOKEN=${coder_agent.mailpit.token}",
     "MP_API_PORT=8026",
     "MP_DATABASE=/data/mailpit.db",
     "MP_MAX_AGE=30d",

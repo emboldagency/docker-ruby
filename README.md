@@ -45,7 +45,7 @@ export UBUNTU_VERSION=24.04
 export RUBY_VERSION=3.4.6
 
 # Set the template version used by our CI and release tags
-export TEMPLATE_VERSION=1.3.0
+export TEMPLATE_VERSION=1.4.0
 
 # Build the image
 # Simple build:
@@ -64,6 +64,22 @@ DOCKER_BUILDKIT=1 docker buildx build --progress=plain -t emboldcreative/ruby:${
 # Push the image to the registry
 docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION}
 ```
+
+## Companion Docker Images
+
+This template uses custom Docker images for supporting services:
+
+### Adminer (Database Management)
+- **Repository**: [emboldagency/adminer-coder](https://github.com/emboldagency/adminer-coder)
+- **Docker Hub**: `emboldcreative/adminer-coder:latest`
+- **Features**: Coder-compatible, auto-login plugin, multi-database support
+
+### Mailpit (Email Testing)
+- **Repository**: [emboldagency/mailpit-coder](https://github.com/emboldagency/mailpit-coder)  
+- **Docker Hub**: `emboldcreative/mailpit-coder:latest`
+- **Features**: Coder-compatible, web UI on port 8025, SMTP on port 1025
+
+These images are pre-built and available on Docker Hub. The template pulls them automatically rather than building locally for faster workspace startup.
 
 ## Coder Template Updates
 

@@ -37,6 +37,16 @@ gh workflow run build-and-deploy.yml --ref $REFERENCE --field skip-jobs=$SKIP_JO
 
 ## Manual Builds
 
+### Build Script
+
+Use the included `build_image.sh` script to interactively build and optionally push the base image. The script provides sensible defaults so you can press Enter to continue.
+
+```bash
+./build_image.sh
+```
+
+### Docker commands
+
 ```bash
 # Set the base image version
 export UBUNTU_VERSION=24.04

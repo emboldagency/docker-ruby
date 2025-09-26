@@ -11,6 +11,11 @@ icon: /icon/docker.png
 
 # Build Process
 
+Note: pushing a new image under an existing tag does not force the Coder server
+to pull the updated image for already-pulled tags. To ensure new workspace
+containers use the updated image you must either run `docker pull` on the
+Coder host (or pull via Portainer) or create a new tag that Coder will fetch.
+
 ## Automated Builds
 
 GitHub Actions is configured to:
@@ -47,6 +52,8 @@ Use the included `build_image.sh` script to interactively build and optionally p
 
 ### Docker commands
 
+Export the variables:
+
 ```bash
 # Set the base image version
 export UBUNTU_VERSION=24.04
@@ -56,22 +63,36 @@ export RUBY_VERSION=3.4.6
 
 # Set the template version used by our CI and release tags
 export TEMPLATE_VERSION=1.4.0
+```
 
-# Build the image
-# Simple build:
+Build the image:
 docker buildx build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
-	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
+	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
+ --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
 
-# If you need full BuildKit output (useful for debugging) you have two options:
-# 1) Add `--progress=plain` to stream the BuildKit output to your terminal:
-docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
-	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
+````
 
-# 2) Or set `DOCKER_BUILDKIT=1` and pipe to `tee` to capture a permanent log file:
-DOCKER_BUILDKIT=1 docker buildx build --progress=plain -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
-	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load 2>&1 | tee build.log
+If you need full BuildKit output (useful for debugging) you have two options:
+1) Add `--progress=plain` to stream the BuildKit output to your terminal:
+```bash
+docker buildx build --progress=plain \
+	-t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
+	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
+	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
+````
 
-# Push the image to the registry
+2. Or set `DOCKER_BUILDKIT=1` and pipe to `tee` to capture a permanent log file:
+
+```bash
+DOCKER_BUILDKIT=1 docker buildx build --progress=plain \
+	-t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
+	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
+	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load 2>&1 | tee build.log
+```
+
+Push the image to the registry:
+
+```bash
 docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION}
 ```
 
@@ -80,16 +101,22 @@ docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release$
 This template uses custom Docker images for supporting services:
 
 ### Adminer (Database Management)
+
 - **Repository**: [emboldagency/adminer-coder](https://github.com/emboldagency/adminer-coder)
 - **Docker Hub**: `emboldcreative/adminer-coder:latest`
 - **Features**: Coder-compatible, auto-login plugin, multi-database support
 
 ### Mailpit (Email Testing)
-- **Repository**: [emboldagency/mailpit-coder](https://github.com/emboldagency/mailpit-coder)  
+
+- **Repository**: [emboldagency/mailpit-coder](https://github.com/emboldagency/mailpit-coder)
 - **Docker Hub**: `emboldcreative/mailpit-coder:latest`
-- **Features**: Coder-compatible, web UI on port 8025, SMTP on port 1025
+- **Features**: Coder-compatible, web UI on port 18025, SMTP on port 1025
 
 These images are pre-built and available on Docker Hub. The template pulls them automatically rather than building locally for faster workspace startup.
+
+## Notes on build stages and slimming
+
+This Dockerfile is now multi-stage: a `builder` stage contains build-only packages (compilers, -dev packages), and the final `runtime` stage only keeps runtime packages. This reduces final image size.
 
 ## Coder Template Updates
 
@@ -104,3 +131,5 @@ Commit and push any changes to git, then use the coder cli to push the template 
 ```bash
 coder templates push ruby --name ${TEMPLATE_VERSION}
 ```
+
+Note: During testing, you can set `--activate=false` to push the template without marking it as the latest version, so new workspaces won't be prompted to update.

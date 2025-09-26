@@ -46,8 +46,9 @@ ENV LANG=en_US.utf8 \
     # Ruby environment (canonical: ~/.gem/ruby/<version>)
     BUNDLE_APP_CONFIG=/home/embold/.gem/ruby/${RUBY_VERSION} \
     GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION} \
-    GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION} \
-    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:$PATH
+    # Include image-bundled gems so non-shell processes can find gems when /home is mounted
+    GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION} \
+    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/opt/embold/image-gems/ruby/${RUBY_VERSION}/bin:$PATH
 
 USER root
 
@@ -55,12 +56,12 @@ USER root
 ARG CONTEXT_PREFIX=""
 COPY --chown=embold:embold --chmod=774 ${CONTEXT_PREFIX}coder /coder
 
-# Final runtime image: install only runtime packages
+# Final runtime layer for this image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
-RUN --mount=type=cache,target=/var/cache/apt/archives \
+RUN --mount=type=cache,target=/var/cache/apt/archives-ruby \
     # remove any stale locks and ensure apt/dpkg directories exist
     rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock || true && \
-    mkdir -p /var/cache/apt/archives /var/lib/apt/lists /var/lib/dpkg /usr/share/postgresql-common/pgdg && \
+    mkdir -p /var/cache/apt/archives /var/lib/apt/lists /var/lib/dpkg /usr/share/postgresql-common/pgdg /usr/share/keyrings && \
     chmod 0755 /var/cache/apt/archives /var/lib/apt/lists /var/lib/dpkg && \
     dpkg --configure -a || true && \
     # add PostgreSQL apt repo key and source
@@ -83,8 +84,8 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
 # Ensure env is available for login and non-login shells
 RUN printf 'export GEM_HOME=%s\nexport GEM_PATH=%s\nexport PATH=%s/bin:$PATH\n' \
     "/home/embold/.gem/ruby/${RUBY_VERSION}" \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}" \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
+    "/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" \
+    "/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
     chmod 0755 /etc/profile.d/embold-gems.sh
 
 # Copy configuration files
@@ -113,14 +114,18 @@ RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
 
 FROM builder AS ruby_gems
 ARG RUBY_VERSION
-ENV GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION}
+# Install built gems directly into /opt/embold/image-gems to avoid copying later.
+ENV GEM_HOME=/opt/embold/image-gems/ruby/${RUBY_VERSION}
 ENV PATH=$GEM_HOME/bin:/usr/local/bin:$PATH
-RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/home/embold/.gem/ruby/${RUBY_VERSION}/cache \
+RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/opt/embold/image-gems/ruby/${RUBY_VERSION}/cache \
     mkdir -p $GEM_HOME && \
     echo 'gem: --no-document' > /etc/gemrc && \
+    # Update RubyGems system first (requires root in build stage), then install runtime gems in one call.
+    # Installing multiple gems in a single `gem install` reduces duplication and is executed as root in the builder.
     gem update --system && \
-    gem install --no-document --install-dir "$GEM_HOME" --bindir "$GEM_HOME/bin" bundler && \
-    gem install --no-document --install-dir "$GEM_HOME" --bindir "$GEM_HOME/bin" rails && \
+    gem install --no-document bundler rails specific_install colorls rake && \
+    # Install pulsar from its repository using specific_install (available after the previous install)
+    gem specific_install https://github.com/emboldagency/pulsar-embold.git && \
     # Remove duplicate binstubs that `gem update --system` may have placed in /usr/local/bin
     # Keep /usr/local/bin/gem to avoid breaking RubyGems tooling
     rm -f /usr/local/bin/bundle /usr/local/bin/bundler || true && \
@@ -129,9 +134,10 @@ RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/home/embold/.gem/rub
 FROM base AS final
 ARG RUBY_VERSION
 COPY --from=builder /usr/local /usr/local
-# Copy prepared gems from the ruby_gems stage into our runtime image (canonical ~/.gem)
-COPY --chown=embold:embold --from=ruby_gems /home/embold/.gem /home/embold/.gem
-RUN chown -R embold:embold /home/embold/.gem || true
+# Keep a read-only image-bundled gem tree under /opt so we can seed an empty mounted home on first-run.
+# Gems were installed in the ruby_gems stage directly into /opt/embold/image-gems.
+COPY --chown=embold:embold --from=ruby_gems /opt/embold/image-gems/ /opt/embold/image-gems/
+RUN chown -R embold:embold /opt/embold/image-gems || true
 
-# Run before starting to remove server.pid
-ENTRYPOINT ["entrypoint.sh"]
+# Run before starting to remove server.pid. Use absolute path for robustness.
+ENTRYPOINT ["/usr/bin/entrypoint.sh"]

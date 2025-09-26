@@ -88,7 +88,7 @@ data "coder_parameter" "git_clone_url" {
   description = "The HTTPS version of the Git Repo to clone."
   type        = "string"
   default     = ""
-  mutable     = false
+  mutable     = true
 }
 
 data "coder_parameter" "pulsar_app_name" {

@@ -1,10 +1,8 @@
-# syntax=docker/dockerfile:1.4
-
 ARG UBUNTU_VERSION=24.04 \
     RUBY_VERSION=3.4.6
 
-# Builder stage: install build deps and compile Ruby
-FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS builder
+# Ruby compilation stage: only rebuilds when RUBY_VERSION or base image changes
+FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS ruby_builder
 
 ARG RUBY_VERSION
 
@@ -13,6 +11,7 @@ USER root
 # Avoid interactive prompts during package installs
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install build dependencies in separate layer for better caching
 RUN --mount=type=cache,target=/var/cache/apt/archives \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -31,30 +30,34 @@ RUN --mount=type=cache,target=/var/cache/apt/archives \
     libtiff-dev \
     libwebp-dev \
     libpq-dev && \
-    # compile Ruby using ruby-build available in base image
-    ruby-build ${RUBY_VERSION} /usr/local && \
     rm -rf /var/lib/apt/lists/*
+
+# Compile Ruby in separate layer - install ruby-build then compile. Installing
+# ruby-build here ensures the tool is available in this build stage regardless
+# of what the base image provides.
+RUN git clone https://github.com/rbenv/ruby-build.git /tmp/ruby-build \
+    && PREFIX=/usr/local /tmp/ruby-build/install.sh \
+    && /usr/local/bin/ruby-build ${RUBY_VERSION} /usr/local \
+    && rm -rf /tmp/ruby-build
 
 FROM emboldcreative/base:ubuntu${UBUNTU_VERSION} AS base
 
 ARG RUBY_VERSION
 
+# Ruby environment (canonical: ~/.gem/ruby/<version>) — keep gems in the user's home so they
+# are stored on the mounted home volume. Image-bundled gems are under /opt and remain available.
 ENV LANG=en_US.utf8 \
     TZ=UTC \
     DATE_TIMEZONE=UTC \
     DEBIAN_FRONTEND=noninteractive \
-    # Ruby environment (canonical: ~/.gem/ruby/<version>)
     BUNDLE_APP_CONFIG=/home/embold/.gem/ruby/${RUBY_VERSION} \
     GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION} \
-    # Include image-bundled gems so non-shell processes can find gems when /home is mounted
     GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION} \
     PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/opt/embold/image-gems/ruby/${RUBY_VERSION}/bin:$PATH
 
 USER root
 
-# Allow building from either repo root (pass CONTEXT_PREFIX=build/) or from the build/ directory (default empty)
-ARG CONTEXT_PREFIX=""
-COPY --chown=embold:embold --chmod=774 ${CONTEXT_PREFIX}coder /coder
+COPY --chown=embold:embold --chmod=774 coder /coder/coder-ruby
 
 # Final runtime layer for this image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
@@ -67,52 +70,58 @@ RUN --mount=type=cache,target=/var/cache/apt/archives-ruby \
     # add PostgreSQL apt repo key and source
     curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
     sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
-    # retry apt-get update/install a few times to avoid transient lock race conditions in BuildKit
-    (for i in 1 2 3 4 5; do apt-get update && break || sleep 1; done) && \
+    # update package lists and install runtime dependencies
+    apt-get update && \
     printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d && \
-    (for i in 1 2 3 4 5; do apt-get install -y -q --no-install-recommends postgresql-client && break || sleep 1; done) && \
+    apt-get install -y -q --no-install-recommends \
+    g++ \
+    gcc \
+    libc6-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libpq-dev \
+    libtiff-dev \
+    libwebp-dev \
+    libyaml-dev \
+    pkg-config \
+    postgresql-client \
+    zlib1g-dev && \
     rm -rf /var/lib/apt/lists/* && \
     # prune locales to keep only en_US to avoid copying unnecessary locale data into runtime
     if [ -d /usr/share/locale ]; then find /usr/share/locale -maxdepth 1 -mindepth 1 ! -name 'en_US' -exec rm -rf {} + || true; fi && \
     rm -rf /var/lib/apt/lists/* /usr/share/man/* /usr/share/doc/* /usr/share/doc-base/* && \
     rm -f /usr/sbin/policy-rc.d && \
-    # Combine our configure scripts
-    cd /coder && \
-    cat scripts/configure-ruby >> scripts/configure && \
-    if [ -d /home/embold/.gems/${RUBY_VERSION}/cache ]; then find /home/embold/.gems/${RUBY_VERSION}/cache -mindepth 1 -delete || true; fi
+        if [ -d /coder/embold/.gems/${RUBY_VERSION}/cache ]; then find /coder/embold/.gems/${RUBY_VERSION}/cache -mindepth 1 -delete || true; fi
 
 # Ensure env is available for login and non-login shells
 RUN printf 'export GEM_HOME=%s\nexport GEM_PATH=%s\nexport PATH=%s/bin:$PATH\n' \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}" \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
+    "/coder/embold/.gem/ruby/${RUBY_VERSION}" \
+    "/coder/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" \
+    "/coder/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
     chmod 0755 /etc/profile.d/embold-gems.sh
-
-# Copy configuration files
-COPY --chmod=775 ${CONTEXT_PREFIX}entrypoint.sh /usr/bin/entrypoint.sh
 
 USER embold
 
 FROM base AS ruby3.4.6
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 
 FROM base AS ruby3.3.9
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 
 FROM base AS ruby3.2.9
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 
 FROM base AS ruby3.1.7
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 
 FROM base AS ruby3.0.7
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 
 FROM base AS ruby2.7.8
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
 
-FROM builder AS ruby_gems
+FROM ruby_builder AS ruby_gems
 ARG RUBY_VERSION
 # Install built gems directly into /opt/embold/image-gems to avoid copying later.
 ENV GEM_HOME=/opt/embold/image-gems/ruby/${RUBY_VERSION}
@@ -133,7 +142,7 @@ RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/opt/embold/image-gem
 
 FROM base AS final
 ARG RUBY_VERSION
-COPY --from=builder /usr/local /usr/local
+COPY --from=ruby_builder /usr/local /usr/local
 # Keep a read-only image-bundled gem tree under /opt so we can seed an empty mounted home on first-run.
 # Gems were installed in the ruby_gems stage directly into /opt/embold/image-gems.
 COPY --chown=embold:embold --from=ruby_gems /opt/embold/image-gems/ /opt/embold/image-gems/

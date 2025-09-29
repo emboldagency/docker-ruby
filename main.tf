@@ -52,6 +52,30 @@ data "coder_parameter" "ruby_version" {
   type        = "string"
   default     = "3.4.6"
   mutable     = true
+  option {
+    name  = "3.4.6"
+    value = "3.4.6"
+  }
+  option {
+    name  = "3.3.9"
+    value = "3.3.9"
+  }
+  option {
+    name  = "3.2.9"
+    value = "3.2.9"
+  }
+  option {
+    name  = "3.1.7"
+    value = "3.1.7"
+  }
+  option {
+    name  = "3.0.7"
+    value = "3.0.7"
+  }
+  option {
+    name  = "2.7.8"
+    value = "2.7.8"
+  }
 }
 
 data "coder_parameter" "ubuntu_version" {

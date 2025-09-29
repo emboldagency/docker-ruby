@@ -144,35 +144,6 @@ data "coder_parameter" "rails_master_key" {
 
 # =============================================================================
 # PARAMETERS - WORKSPACE PREFERENCES
-# =============================================================================
-data "coder_parameter" "timezone" {
-  name        = "Timezone"
-  description = "Set the container timezone for the workspace."
-  type        = "string"
-  default     = "America/New_York"
-  mutable     = true
-  option {
-    name  = "UTC"
-    value = "UTC"
-  }
-  option {
-    name  = "America/New_York (Eastern)"
-    value = "America/New_York"
-  }
-  option {
-    name  = "America/Los_Angeles (Pacific)"
-    value = "America/Los_Angeles"
-  }
-}
-
-data "coder_parameter" "vscode_web_theme" {
-  name        = "VS Code Web Theme"
-  description = "Which theme do you prefer for VS Code Web?"
-  icon        = "/icon/code.svg"
-  type        = "string"
-  default     = "Default Dark Modern"
-  mutable     = true
-}
 
 # =============================================================================
 # LOCALS
@@ -194,7 +165,7 @@ locals {
   ruby_version          = data.coder_parameter.ruby_version.value
   template_version      = "1.4.0"
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
-  timezone              = coalesce(data.coder_parameter.timezone.value, "UTC")
+  timezone              = module.timezone.timezone
   user_email            = data.coder_workspace_owner.me.email
   user_full_name        = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
   user_id               = data.coder_workspace_owner.me.id
@@ -211,7 +182,7 @@ resource "coder_agent" "main" {
   os                      = "linux"
   startup_script_behavior = "blocking"
   env = {
-    APP                    = local.app
+    APP                    = local.pulsar_magic_template == false ? local.app : "magic"
     CODER_TEMPLATE_VERSION = local.template_version
     CODER_USERNAME         = local.user_username
     CODER_WORKSPACE_NAME   = local.workspace_name
@@ -257,248 +228,70 @@ resource "coder_agent" "main" {
   #   timeout      = 30
   #   order        = 4
   # }
-  # startup_script = <<-EOT
-  #       set -e
-  #       /bin/bash /coder/scripts/configure
-  #   EOT
+  startup_script = <<-EOT
+        set -e
+        /bin/bash /coder/scripts/configure.sh
+    EOT
 }
 
-resource "coder_agent" "postgres" {
-  arch                    = data.coder_provisioner.me.arch
-  os                      = "linux"
-  startup_script_behavior = "blocking"
-  env = {
-    TZ                   = local.timezone
-  }
-}
-
-resource "coder_agent" "adminer" {
-  arch                    = data.coder_provisioner.me.arch
-  os                      = "linux"
-  startup_script_behavior = "blocking"
-  env = {
-    TZ                   = local.timezone
-  }
-  # TODO: Re-enable these at some point
-  # metadata {
-  #   display_name = "Adminer CPU"
-  #   key          = "cpu"
-  #   script       = "coder stat cpu"
-  #   interval     = 30
-  #   timeout      = 1
-  #   order        = 1
-  # }
-  # metadata {
-  #   display_name = "Adminer Memory"
-  #   key          = "mem"
-  #   script       = "coder stat mem --prefix 'Gi' | sed 's/ //;s/iB//'"
-  #   interval     = 30
-  #   timeout      = 1
-  #   order        = 2
-  # }
-}
-
-resource "coder_agent" "mailpit" {
-  arch                    = data.coder_provisioner.me.arch
-  os                      = "linux"
-  startup_script_behavior = "blocking"
-  env = {
-    APP                    = "mailpit"
-    TZ                     = local.timezone
-  }
-  # TODO: Re-enable these at some point
-  # metadata {
-  #   display_name = "Mailpit CPU"
-  #   key          = "cpu"
-  #   script       = "coder stat cpu"
-  #   interval     = 30
-  #   timeout      = 1
-  #   order        = 1
-  # }
-  # metadata {
-  #   display_name = "Mailpit Memory"
-  #   key          = "mem"
-  #   script       = "coder stat mem --prefix 'Gi' | sed 's/ //;s/iB//'"
-  #   interval     = 30
-  #   timeout      = 1
-  #   order        = 2
-  # }
-  # metadata {
-  #   display_name = "Home Volume Size"
-  #   key          = "home_volume_size"
-  #   script       = "du -BG --apparent-size /home/embold | tail -1 | awk '{print $1}'"
-  #   interval     = 300
-  #   timeout      = 30
-  #   order        = 3
-  # }
-  # metadata {
-  #   display_name = "Database Size"
-  #   key          = "postgres_volume_size"
-  #   script       = "psql -U embold -d labspend -c \"SELECT pg_size_pretty(pg_database_size('labspend'));\" -t | xargs"
-  #   interval     = 300
-  #   timeout      = 30
-  #   order        = 4
-  # }
-  # startup_script = <<-EOT
-  #       set -e
-  #       exec mailpit --http-bind=127.0.0.1:8025
-  #   EOT
-}
+# resource "coder_agent" "postgres" {
+#   arch                    = data.coder_provisioner.me.arch
+#   os                      = "linux"
+#   startup_script_behavior = "blocking"
+#   env = {
+#     TZ = local.timezone
+#   }
+# }
 
 # =============================================================================
 # CODER SCRIPTS & MODULES
 # =============================================================================
-# TODO: Convert this to a module
-resource "coder_script" "ssh_github_keys" {
-  agent_id     = coder_agent.main.id
-  display_name = "SSH & GitHub Keys"
-  run_on_start = true
-  icon         = "icons/git.svg"
-  script       = <<-EOT
-    set -e
-
-    # --- Ensure .ssh and known_hosts exist ---
-    mkdir -p /home/embold/.ssh
-    touch /home/embold/.ssh/known_hosts
-
-    # --- Always (re)add GitHub SSH host keys (idempotent) ---
-    grep -v '^github.com ' /home/embold/.ssh/known_hosts > /home/embold/.ssh/known_hosts.tmp || true
-    if curl -L https://api.github.com/meta | jq -r '.ssh_keys | .[]' | sed -e 's/^/github.com /' >>/home/embold/.ssh/known_hosts.tmp; then
-      mv /home/embold/.ssh/known_hosts.tmp /home/embold/.ssh/known_hosts
-    else
-      echo "Warning: Could not update GitHub SSH keys, continuing..."
-      rm -f /home/embold/.ssh/known_hosts.tmp
-    fi
-
-    # --- Add host keys for all our relevant hostnames and IPs for ports 2022 and 3022 ---
-    # coder.ssh.embold.net (8.42.149.40:2022)
-    keyscan_coder="$(ssh-keyscan -p 2022 -t ed25519 coder.ssh.embold.net 2>/dev/null)"
-    if [ -n "$keyscan_coder" ]; then
-      echo "$keyscan_coder" >> /home/embold/.ssh/known_hosts
-      echo "$keyscan_coder" | sed 's/coder\.ssh\.embold\.net/8.42.149.40/' >> /home/embold/.ssh/known_hosts
-    fi
-
-    # maintenance.ssh.embold.net (8.42.149.40:3022)
-    keyscan_maint="$(ssh-keyscan -p 3022 -t ed25519 maintenance.ssh.embold.net 2>/dev/null)"
-    if [ -n "$keyscan_maint" ]; then
-      echo "$keyscan_maint" >> /home/embold/.ssh/known_hosts
-      echo "$keyscan_maint" | sed 's/maintenance\.ssh\.embold\.net/8.42.149.40/' >> /home/embold/.ssh/known_hosts
-    fi
-
-    # staging.ssh.embold.net (8.42.149.41:22)
-    keyscan_staging="$(ssh-keyscan -p 22 -t ed25519 staging.ssh.embold.net 2>/dev/null)"
-    if [ -n "$keyscan_staging" ]; then
-      echo "$keyscan_staging" >> /home/embold/.ssh/known_hosts
-      echo "$keyscan_staging" | sed 's/staging\.ssh\.embold\.net/8.42.149.41/' >> /home/embold/.ssh/known_hosts
-    fi
-
-    # --- Only fetch and set up coder signing keys if not already present ---
-    if [ ! -f /home/embold/.ssh/coder ]; then
-      mkdir -p /home/embold/.config/coder-api
-      if curl --request GET \
-        --url "${data.coder_workspace.me.access_url}/api/v2/workspaceagents/me/gitsshkey" \
-        --header "Coder-Session-Token: $CODER_AGENT_TOKEN" \
-        -o /home/embold/.config/coder-api/gitsshkey.json; then
-
-        jq -r '.public_key' /home/embold/.config/coder-api/gitsshkey.json | tr -d "\n" >/home/embold/.ssh/coder.pub || true
-        echo -n " coder:$CODER_USERNAME@embold.dev" >>/home/embold/.ssh/coder.pub
-        jq -r '.private_key' /home/embold/.config/coder-api/gitsshkey.json >/home/embold/.ssh/coder || true
-
-        # Symlink to standard SSH key filenames based on key type
-        key_type=$(awk '{print $1}' /home/embold/.ssh/coder.pub)
-        case "$key_type" in
-          ssh-ed25519)
-            ln -sf /home/embold/.ssh/coder /home/embold/.ssh/id_ed25519
-            ln -sf /home/embold/.ssh/coder.pub /home/embold/.ssh/id_ed25519.pub
-            ;;
-          ssh-rsa)
-            ln -sf /home/embold/.ssh/coder /home/embold/.ssh/id_rsa
-            ln -sf /home/embold/.ssh/coder.pub /home/embold/.ssh/id_rsa.pub
-            ;;
-          ecdsa-sha2-nistp256)
-            ln -sf /home/embold/.ssh/coder /home/embold/.ssh/id_ecdsa
-            ln -sf /home/embold/.ssh/coder.pub /home/embold/.ssh/id_ecdsa.pub
-            ;;
-        esac
-
-        # --- Commit signing setup ---
-        mkdir -p /home/embold/.ssh/git-commit-signing
-        cp /home/embold/.ssh/coder.pub /home/embold/.ssh/git-commit-signing || true
-
-        chmod 0700 "/home/embold/.ssh" "/home/embold/.ssh/git-commit-signing" || true
-        chmod 600 /home/embold/.ssh/* /home/embold/.ssh/git-commit-signing/* /home/embold/.config/coder-api/gitsshkey.json || true
-
-        git config --global gpg.format ssh || true
-        git config --global commit.gpgsign true || true
-        git config --global user.signingkey ~/.ssh/coder || true
-      else
-        echo "Warning: Could not fetch coder signing keys, continuing..."
-      fi
-    else
-      # If coder key exists, just fix permissions
-      sudo chmod 0700 "/home/embold/.ssh"
-      sudo chmod 600 /home/embold/.ssh/*
-    fi
-
-    exit 0
-  EOT
+module "timezone" {
+  # source = "../coder-timezone"
+  source   = "git::https://github.com/emboldagency/coder-timezone.git?ref=v1.0.2"
+  agent_id = coder_agent.main.id
 }
 
-# TODO: Convert this to a module
-# resource "coder_script" "homebrew" {
-#   agent_id     = coder_agent.main.id
-#   display_name = "Homebrew (Linuxbrew)"
-#   run_on_start = true
-#   icon         = "https://brew.sh/assets/img/homebrew-256x256.png"
-#   script       = <<-EOT
-#     set -e
-
-#     # --- Ensure Homebrew is available in this shell ---
-#     if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-#       eval "$('/home/linuxbrew/.linuxbrew/bin/brew' shellenv)"
-#     elif command -v brew >/dev/null 2>&1; then
-#       eval "$($(command -v brew) shellenv)"
-#     else
-#       NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-#       if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-#         eval "$('/home/linuxbrew/.linuxbrew/bin/brew' shellenv)"
-#       else
-#         echo "Homebrew install failed or brew not found. Exiting."
-#         exit 1
-#       fi
-#     fi
-
-#     # --- Add brew to PATH for current and future sessions (.profile) ---
-#     if ! grep -q 'brew shellenv' /home/embold/.profile 2>/dev/null; then
-#       echo 'eval "$(/home/linuxbrew/.linuxbrew/Homebrew/bin/brew shellenv)"' >> /home/embold/.profile
-#     fi
-
-#     # --- Add brew to PATH for current and future zsh sessions (.zshrc) ---
-#     if ! grep -q 'brew shellenv' /home/embold/.zshrc 2>/dev/null; then
-#       echo 'eval "$(/home/linuxbrew/.linuxbrew/Homebrew/bin/brew shellenv)"' >> /home/embold/.zshrc
-#     fi
-
-#     # --- Install required packages if not already installed ---
-#     # for pkg in gcc caddy mailpit micro zoxide; do
-#     for pkg in gcc caddy micro zoxide; do
-#       if ! brew list "$pkg" >/dev/null 2>&1; then
-#         brew install "$pkg"
-#       else
-#         echo "$pkg already installed, skipping."
-#       fi
-#     done
-
-#     echo "Homebrew and required packages installed."
-#     exit 0
-#   EOT
-# }
+module "ssh_setup" {
+  # source = "../coder-ssh-setup"
+  source   = "git::https://github.com/emboldagency/coder-ssh-setup.git?ref=v1.0.2"
+  agent_id = coder_agent.main.id
+  hosts = [
+    "coder.ssh.embold.net:2022",
+    "8.42.149.40:2022",
+    "maintenance.ssh.embold.net:3022",
+    "8.42.149.40:3022",
+    "staging.ssh.embold.net:22",
+    "8.42.149.41:22",
+  ]
+}
 
 module "dotfiles" {
-  agent_id             = coder_agent.main.id
-  count                = data.coder_workspace.me.start_count
-  source               = "registry.coder.com/coder/dotfiles/coder"
-  version              = "1.2.1"
-  default_dotfiles_uri = ""
+  agent_id      = coder_agent.main.id
+  count         = data.coder_workspace.me.start_count
+  source        = "registry.coder.com/coder/dotfiles/coder"
+  version       = "1.2.1"
+  manual_update = true
+}
+
+module "link_dotfiles" {
+  # source = "../coder-link-dotfiles"
+  source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git?ref=v1.0.2"
+  count    = data.coder_workspace.me.start_count
+  agent_id = coder_agent.main.id
+  # Pass the dotfiles URI from the first dotfiles module instance. The
+  # dotfiles module is created with `count`, so it returns a list; we take
+  # the first element here and replicate the link module per workspace.
+  dotfiles_uri = module.dotfiles[0].dotfiles_uri
+  # Ensure dotfiles are created before we try to link/copy them
+  depends_on = [module.dotfiles]
+}
+
+module "coder-login" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/coder-login/coder"
+  version  = "1.1.0"
+  agent_id = coder_agent.main.id
 }
 
 module "code-server" {
@@ -506,10 +299,10 @@ module "code-server" {
   source       = "registry.coder.com/coder/code-server/coder"
   agent_id     = coder_agent.main.id
   folder       = "/home/embold/code/${local.app}"
-  extensions   = []
-  settings = {
-    "workbench.colorTheme" : data.coder_parameter.vscode_web_theme.value
-  }
+  # extensions   = []
+  # settings = {
+  #   "workbench.colorTheme" : data.coder_parameter.vscode_web_theme.value
+  # }
 }
 
 module "git-clone" {
@@ -522,12 +315,6 @@ module "git-clone" {
   base_dir    = "/home/embold/code"
 }
 
-# module "git-commit-signing" {
-#   count    = data.coder_workspace.me.start_count
-#   source   = "git::https://github.com/emboldagency/coder-registry.git//registry/embold/modules/git-commit-signing?ref=release/embold/git-commit-signing/v1.0.1"
-#   agent_id = coder_agent.main.id
-# }
-
 module "git-config" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-config/coder"
@@ -535,15 +322,12 @@ module "git-config" {
   agent_id = coder_agent.main.id
 }
 
-
-# module "ssh_github_keys" {
-#   source       = "../coder-module-ssh-github-keys"
-#   count        = data.coder_workspace.me.start_count
-#   agent_id     = coder_agent.main.id
-#   access_url   = data.coder_workspace.me.access_url
-#   run_on_start = true
-# }
-
+module "github-upload-public-key" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/github-upload-public-key/coder"
+  version  = "1.0.31"
+  agent_id = coder_agent.main.id
+}
 
 module "jetbrains" {
   count    = data.coder_workspace.me.start_count
@@ -552,6 +336,16 @@ module "jetbrains" {
   agent_id = coder_agent.main.id
   folder   = "/home/embold/code/${local.app}"
   default  = ["RM"]
+}
+
+module "reverse_proxy" {
+  # source = "../coder-reverse-proxy"
+  source   = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.2"
+  agent_id = coder_agent.main.id
+  proxy_mappings = [
+    "18080:adminer:8080",
+    "18025:mailpit:8025"
+  ]
 }
 
 # =============================================================================
@@ -578,17 +372,11 @@ resource "docker_volume" "home_volume" {
     value = local.user_id
   }
   labels {
-    label = "coder.username"
-    value = local.user_username
-  }
-  labels {
-    label = "coder.owner_id"
-    value = local.user_id
-  }
-  labels {
     label = "coder.workspace_id"
     value = local.workspace_id
   }
+  # This field becomes outdated if the workspace is renamed but can
+  # be useful for debugging or cleaning out dangling volumes.
   labels {
     label = "coder.workspace_name_at_creation"
     value = local.workspace_name
@@ -647,33 +435,6 @@ resource "docker_volume" "mailpit_volume" {
   }
 }
 
-# Persistent Homebrew (Linuxbrew) volume
-# resource "docker_volume" "linuxbrew_volume" {
-#   name = "${local.resource_name_base}-linuxbrew"
-#   lifecycle {
-#     ignore_changes = all
-#   }
-#   # Add labels in Docker to keep track of orphan resources.
-#   labels {
-#     label = "coder.owner"
-#     value = local.user_username
-#   }
-#   labels {
-#     label = "coder.owner_id"
-#     value = local.user_id
-#   }
-#   labels {
-#     label = "coder.workspace_id"
-#     value = local.workspace_id
-#   }
-#   # This field becomes outdated if the workspace is renamed but can
-#   # be useful for debugging or cleaning out dangling volumes.
-#   labels {
-#     label = "coder.workspace_name_at_creation"
-#     value = local.workspace_name
-#   }
-# }
-
 # =============================================================================
 # DOCKER IMAGES
 # =============================================================================
@@ -687,11 +448,6 @@ resource "docker_image" "ruby" {
   keep_locally  = true
 }
 
-# resource "docker_network" "workspace" {
-#   name  = "${local.resource_name_base}-network"
-#   count = data.coder_workspace.me.start_count
-# }
-
 data "docker_registry_image" "adminer" {
   name = "emboldcreative/adminer-coder:latest"
 }
@@ -703,7 +459,7 @@ resource "docker_image" "adminer" {
 }
 
 data "docker_registry_image" "mailpit" {
-  name = "emboldcreative/mailpit-coder:latest"
+  name = "axllent/mailpit:latest"
 }
 
 resource "docker_image" "mailpit" {
@@ -715,12 +471,12 @@ resource "docker_image" "mailpit" {
 # =============================================================================
 # DOCKER CONTAINERS
 # =============================================================================
+
 resource "docker_container" "postgres" {
   count        = data.coder_workspace.me.start_count
   name         = "${local.resource_name_base}-postgres"
   image        = "postgres:${local.postgres_version}"
   hostname     = "postgres"
-  entrypoint = ["sh", "-c", replace(coder_agent.postgres.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   network_mode = docker_network.workspace[count.index].name
   env = [
     "POSTGRES_DB=${local.db_name}",
@@ -751,6 +507,7 @@ resource "docker_container" "workspace" {
   env = compact([
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "DATABASE_URL=postgresql://embold:embold@postgres:5432/${local.db_name}",
+    "DOTFILES_URL=${module.dotfiles[count.index].dotfiles_uri}",
     "GITHUB_TOKEN=${local.github_token}",
     "HOSTNAME=${local.app}",
     "PGHOST=postgres",
@@ -765,11 +522,6 @@ resource "docker_container" "workspace" {
     volume_name    = docker_volume.home_volume.name
     read_only      = false
   }
-  # volumes {
-  #   container_path = "/home/linuxbrew"
-  #   volume_name    = docker_volume.linuxbrew_volume.name
-  #   read_only      = false
-  # }
   network_mode = docker_network.workspace[count.index].name
   # Add labels in Docker to keep track of orphan resources.
   labels {
@@ -790,61 +542,13 @@ resource "docker_container" "workspace" {
   }
 }
 
-# resource "coder_app" "web_app" {
-#   agent_id     = coder_agent.main.id
-#   display_name = "Web App"
-#   slug         = "webapp"
-#   icon         = "/emojis/1f310.png"
-#   url          = "http://localhost:3000"
-#   subdomain    = true
-#   share        = "public"
-#   order        = 1
-#   # healthcheck {
-#   #   url       = "http://localhost:443"
-#   #   interval  = 5
-#   #   threshold = 6
-#   # }
-# }
-
-# resource "docker_image" "mailpit" {
-#   name = "axllent/mailpit:latest"
-# }
-
-# resource "docker_volume" "mailpit_volume" {
-#   name = "${local.resource_name_base}-mailpit"
-#   lifecycle {
-#     ignore_changes = all
-#   }
-#   # Add labels in Docker to keep track of orphan resources.
-#   labels {
-#     label = "coder.owner"
-#     value = local.user_username
-#   }
-#   labels {
-#     label = "coder.owner_id"
-#     value = local.user_id
-#   }
-#   labels {
-#     label = "coder.workspace_id"
-#     value = local.workspace_id
-#   }
-#   # This field becomes outdated if the workspace is renamed but can
-#   # be useful for debugging or cleaning out dangling volumes.
-#   labels {
-#     label = "coder.workspace_name_at_creation"
-#     value = local.workspace_name
-#   }
-# }
-
 resource "docker_container" "adminer" {
   count        = data.coder_workspace.me.start_count
   network_mode = docker_network.workspace[count.index].name
   name         = "${local.resource_name_base}-adminer"
   image        = docker_image.adminer.name
   hostname     = "adminer"
-  entrypoint = ["sh", "-c", replace(coder_agent.adminer.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env = [
-    "CODER_AGENT_TOKEN=${coder_agent.adminer.token}",
     "ADMINER_DEFAULT_DB=${local.db_name}",
     "ADMINER_DEFAULT_DRIVER=pgsql",
     "ADMINER_DEFAULT_PASSWORD=embold",
@@ -860,16 +564,14 @@ resource "docker_container" "mailpit" {
   name         = "${local.resource_name_base}-mailpit"
   image        = docker_image.mailpit.name
   hostname     = "mailpit"
-  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   network_mode = docker_network.workspace[count.index].name
   env = [
-    "CODER_AGENT_TOKEN=${coder_agent.mailpit.token}",
     "MP_API_PORT=8026",
     "MP_DATABASE=/data/mailpit.db",
     "MP_MAX_AGE=30d",
     "MP_MAX_MESSAGES=5000",
     "MP_SMTP_BIND_ADDR=0.0.0.0:1025",
-    "MU_UI_BIND_ADDR=0.0.0.0:8025",
+    "MP_UI_BIND_ADDR=0.0.0.0:8025",
   ]
   volumes {
     container_path = "/data"
@@ -889,38 +591,40 @@ resource "coder_app" "web_app" {
   url          = "http://localhost:3000"
   subdomain    = true
   share        = "public"
-  order        = 1
+  order        = 2
 }
 
 resource "coder_app" "adminer" {
-  agent_id     = coder_agent.adminer.id
+  agent_id     = coder_agent.main.id
   slug         = "adminer"
   display_name = "Adminer"
-  url          = "http://localhost:8080"
+  url          = "http://localhost:18080"
   icon         = "http://www.adminer.org/favicon.ico"
   share        = "authenticated"
   order        = 2
   healthcheck {
-    url       = "http://localhost:8080"
+    url       = "http://localhost:18080"
     interval  = 5
     threshold = 6
   }
 }
 
 resource "coder_app" "mailpit" {
-  agent_id     = coder_agent.mailpit.id
+  agent_id     = coder_agent.main.id
   slug         = "mailpit"
   display_name = "Mailpit"
-  url          = "http://localhost:8025"
+  url          = "http://localhost:18025"
   share        = "authenticated"
   subdomain    = true
   icon         = "https://mailpit.axllent.org/images/mailpit.svg"
+  order        = 3
   healthcheck {
-    url       = "http://localhost:8025"
+    url       = "http://localhost:18025"
     interval  = 5
     threshold = 6
   }
 }
+
 
 # =============================================================================
 # METADATA & MONITORING
@@ -949,43 +653,3 @@ resource "coder_metadata" "container_info" {
     value = local.template_version
   }
 }
-
-# resource "coder_script" "caddy" {
-#   agent_id     = coder_agent.main.id
-#   display_name = "Caddy Proxies"
-#   icon         = "https://caddyserver.com/resources/images/favicon.png"
-#   run_on_start = true
-#   script       = <<-EOT
-#     set -e
-
-#     echo "Waiting for Caddy to be installed..."
-#     attempts=0
-#     max_attempts=60
-#     while true; do
-#       if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-#         eval "$('/home/linuxbrew/.linuxbrew/bin/brew' shellenv)"
-#       fi
-#       if command -v caddy >/dev/null 2>&1 || [ -x /home/linuxbrew/.linuxbrew/bin/caddy ]; then
-#         echo "Caddy found!"
-
-#         # --- Start Caddy reverse proxies ---
-#         echo "Starting Caddy reverse proxy for Adminer..."
-#         mkdir -p /home/embold/.local/tmp/caddy
-#         caddy reverse-proxy --from :8080 --to http://adminer:8080 > /home/embold/.local/tmp/caddy/caddy-adminer.log 2>&1 &
-#         echo "Caddy is running, reverse proxying Adminer at http://localhost:8080"
-
-#         echo "Starting Caddy reverse proxy for Mailpit..."
-#         caddy reverse-proxy --from :8025 --to http://mailpit:8025 > /home/embold/.local/tmp/caddy/caddy-mailpit.log 2>&1 &
-#         echo "Caddy is running, reverse proxying Mailpit at http://localhost:8025"
-
-#         break
-#       fi
-#       attempts=$((attempts+1))
-#       if [ "$attempts" -ge "$max_attempts" ]; then
-#         echo "Timeout: Caddy not found after $((max_attempts*2)) seconds. Please check Homebrew install."
-#         exit 1
-#       fi
-#       sleep 2
-#     done
-#   EOT
-# }

@@ -57,8 +57,6 @@ ENV LANG=en_US.utf8 \
 
 USER root
 
-COPY --chown=embold:embold --chmod=774 coder /coder/coder-ruby
-
 # Final runtime layer for this image: install only runtime packages
 # Install requirements with BuildKit cache mounts and transient policy to avoid starting services
 RUN --mount=type=cache,target=/var/cache/apt/archives-ruby \

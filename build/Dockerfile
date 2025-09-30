@@ -52,8 +52,8 @@ ENV LANG=en_US.utf8 \
     DEBIAN_FRONTEND=noninteractive \
     BUNDLE_APP_CONFIG=/home/embold/.gem/ruby/${RUBY_VERSION} \
     GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION} \
-    GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION} \
-    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/opt/embold/image-gems/ruby/${RUBY_VERSION}/bin:$PATH
+    GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION}:/coder/gems/ruby/${RUBY_VERSION} \
+    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/coder/gems/ruby/${RUBY_VERSION}/bin:$PATH
 
 USER root
 
@@ -91,13 +91,13 @@ RUN --mount=type=cache,target=/var/cache/apt/archives-ruby \
     if [ -d /usr/share/locale ]; then find /usr/share/locale -maxdepth 1 -mindepth 1 ! -name 'en_US' -exec rm -rf {} + || true; fi && \
     rm -rf /var/lib/apt/lists/* /usr/share/man/* /usr/share/doc/* /usr/share/doc-base/* && \
     rm -f /usr/sbin/policy-rc.d && \
-        if [ -d /coder/embold/.gems/${RUBY_VERSION}/cache ]; then find /coder/embold/.gems/${RUBY_VERSION}/cache -mindepth 1 -delete || true; fi
+    if [ -d /coder/home/.gem/ruby/${RUBY_VERSION}/cache ]; then find /coder/home/.gem/ruby/${RUBY_VERSION}/cache -mindepth 1 -delete || true; fi
 
 # Ensure env is available for login and non-login shells
 RUN printf 'export GEM_HOME=%s\nexport GEM_PATH=%s\nexport PATH=%s/bin:$PATH\n' \
-    "/coder/embold/.gem/ruby/${RUBY_VERSION}" \
-    "/coder/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" \
-    "/coder/embold/.gem/ruby/${RUBY_VERSION}:/opt/embold/image-gems/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
+    "/coder/home/.gem/ruby/${RUBY_VERSION}" \
+    "/coder/home/.gem/ruby/${RUBY_VERSION}:/coder/gems/ruby/${RUBY_VERSION}" \
+    "/coder/home/.gem/ruby/${RUBY_VERSION}:/coder/gems/ruby/${RUBY_VERSION}" > /etc/profile.d/embold-gems.sh && \
     chmod 0755 /etc/profile.d/embold-gems.sh
 
 USER embold
@@ -123,10 +123,10 @@ RUN gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative
 
 FROM ruby_builder AS ruby_gems
 ARG RUBY_VERSION
-# Install built gems directly into /opt/embold/image-gems to avoid copying later.
-ENV GEM_HOME=/opt/embold/image-gems/ruby/${RUBY_VERSION}
+# Install built gems directly into persistent coder area to avoid copying later.
+ENV GEM_HOME=/coder/gems/ruby/${RUBY_VERSION}
 ENV PATH=$GEM_HOME/bin:/usr/local/bin:$PATH
-RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/opt/embold/image-gems/ruby/${RUBY_VERSION}/cache \
+RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/coder/gems/ruby/${RUBY_VERSION}/cache \
     mkdir -p $GEM_HOME && \
     echo 'gem: --no-document' > /etc/gemrc && \
     # Update RubyGems system first (requires root in build stage), then install runtime gems in one call.
@@ -143,10 +143,10 @@ RUN --mount=type=cache,id=gem-cache-${RUBY_VERSION},target=/opt/embold/image-gem
 FROM base AS final
 ARG RUBY_VERSION
 COPY --from=ruby_builder /usr/local /usr/local
-# Keep a read-only image-bundled gem tree under /opt so we can seed an empty mounted home on first-run.
-# Gems were installed in the ruby_gems stage directly into /opt/embold/image-gems.
-COPY --chown=embold:embold --from=ruby_gems /opt/embold/image-gems/ /opt/embold/image-gems/
-RUN chown -R embold:embold /opt/embold/image-gems || true
+# Keep a read-only image-bundled gem tree under the persistent coder area so we can seed an empty mounted home on first-run.
+# Gems were installed in the ruby_gems stage directly into /coder/gems.
+COPY --chown=embold:embold --from=ruby_gems /coder/gems/ /coder/gems/
+RUN chown -R embold:embold /coder/gems || true
 
 # Run before starting to remove server.pid. Use absolute path for robustness.
 ENTRYPOINT ["/usr/bin/entrypoint.sh"]

@@ -230,7 +230,10 @@ resource "coder_agent" "main" {
   # }
   startup_script = <<-EOT
         set -e
-        /bin/bash /coder/scripts/configure.sh
+
+        embold='H4sIAAAAAAAAA52SMQ7DMAhFd5+CqWPv0itkyFDJErbk+h+/wcTGtM7Q/iUKmCf4QLRWNW0XT5YKV4k660cggJtFdmAAifgPIJCBJ0Q5vwQPA6YBtH6TpUXJZYIAlHkiZ6BN/Piw4BM4qAGdpMzO8x5G61TLvzvs32DNdTDy5GF/bsuZ/j1QY6F11hZjzAXQVy2B6uIBlGCzjs6RCx3MeeJUnfWjWpMuw+IhZQWRjb27iuiXmegSeGz5PvZb5AQLUcl7G2XjGNmfIEde3V7lWLfzZXgDYVxqC3sDAAA='
+        base64 -d <<<"$embold" | gunzip
+        echo
     EOT
 }
 
@@ -264,6 +267,12 @@ module "ssh_setup" {
     "staging.ssh.embold.net:22",
     "8.42.149.41:22",
   ]
+}
+
+module "gem_setup" {
+  source   = "git::https://github.com/emboldagency/coder-gem-setup.git?ref=v1.0.0"
+  count    = data.coder_workspace.me.start_count
+  agent_id = coder_agent.main.id
 }
 
 module "dotfiles" {
@@ -305,16 +314,6 @@ module "code-server" {
   # }
 }
 
-module "git-clone" {
-  count       = data.coder_workspace.me.start_count
-  source      = "registry.coder.com/coder/git-clone/coder"
-  version     = "1.1.0"
-  agent_id    = coder_agent.main.id
-  url         = data.coder_parameter.git_clone_url.value
-  folder_name = local.app
-  base_dir    = "/home/embold/code"
-}
-
 module "git-config" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-config/coder"
@@ -346,6 +345,21 @@ module "reverse_proxy" {
     "18080:adminer:8080",
     "18025:mailpit:8025"
   ]
+}
+
+resource "coder_script" "prepare_rails" {
+  agent_id     = coder_agent.main.id
+  display_name = "Prepare Rails"
+  icon         = "/icon/rails.svg"
+  run_on_start = true
+  script       = <<-EOT
+        set -e
+        # Remove potentially stale Rails server.pid file
+        if [ -f $HOME/code/$APP/tmp/pids/server.pid ]; then
+          echo "INFO: Removing stale Rails server.pid file"
+          rm -f $HOME/code/$APP/tmp/pids/server.pid
+        fi
+    EOT
 }
 
 # =============================================================================

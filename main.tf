@@ -182,7 +182,7 @@ resource "coder_agent" "main" {
   os                      = "linux"
   startup_script_behavior = "blocking"
   env = {
-    APP                    = local.pulsar_magic_template == false ? local.app : "magic"
+    APP                    = local.app
     CODER_TEMPLATE_VERSION = local.template_version
     CODER_USERNAME         = local.user_username
     CODER_WORKSPACE_NAME   = local.workspace_name

@@ -337,6 +337,13 @@ module "jetbrains" {
   default  = ["RM"]
 }
 
+module "dynamic_services" {
+  source            = "git::https://github.com/emboldagency/coder-dynamic-resources.git?ref=v1.0.0"
+  agent_id            = coder_agent.main.id
+  docker_network_name = docker_network.workspace[0].name
+  resource_name_base  = local.resource_name_base
+}
+
 module "reverse_proxy" {
   # source = "../coder-reverse-proxy"
   source   = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.2"

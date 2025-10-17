@@ -107,14 +107,6 @@ data "coder_parameter" "postgres_version" {
 # =============================================================================
 # PARAMETERS - APPLICATION
 # =============================================================================
-data "coder_parameter" "git_clone_url" {
-  name        = "Git Clone URL"
-  description = "The HTTPS version of the Git Repo to clone."
-  type        = "string"
-  default     = ""
-  mutable     = true
-}
-
 data "coder_parameter" "pulsar_app_name" {
   name        = "Pulsar App Name"
   description = "What is the Pulsar app name? If this is blank, the workspace name will be used."
@@ -138,7 +130,7 @@ data "coder_parameter" "rails_master_key" {
   description = "Enter the rails master key to use for encrypted credentials. This will set the RAILS_MASTER_KEY environment variable."
   icon        = "/emojis/1f511.png"
   type        = "string"
-  default     = "3.4.6"
+  default     = ""
   mutable     = true
 }
 
@@ -165,7 +157,7 @@ locals {
   ruby_version          = data.coder_parameter.ruby_version.value
   template_version      = "1.4.0"
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
-  timezone              = module.timezone.timezone
+  timezone              = try(module.timezone[0].timezone, "UTC")
   user_email            = data.coder_workspace_owner.me.email
   user_full_name        = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
   user_id               = data.coder_workspace_owner.me.id
@@ -250,15 +242,18 @@ resource "coder_agent" "main" {
 # CODER SCRIPTS & MODULES
 # =============================================================================
 module "timezone" {
-  # source = "../coder-timezone"
-  source   = "git::https://github.com/emboldagency/coder-timezone.git?ref=v1.0.2"
   agent_id = coder_agent.main.id
+  count               = data.coder_workspace.me.start_count
+  # source = "../coder-timezone"
+  # source   = "git::https://github.com/emboldagency/coder-timezone.git?ref=v1.0.0"
+  source   = "git::https://github.com/emboldagency/coder-timezone.git"
 }
 
 module "ssh_setup" {
-  # source = "../coder-ssh-setup"
-  source   = "git::https://github.com/emboldagency/coder-ssh-setup.git?ref=v1.0.2"
   agent_id = coder_agent.main.id
+  # source = "../coder-ssh-setup"
+  # source   = "git::https://github.com/emboldagency/coder-ssh-setup.git?ref=v1.0.0"
+  source   = "git::https://github.com/emboldagency/coder-ssh-setup.git"
   hosts = [
     "coder.ssh.embold.net:2022",
     "8.42.149.40:2022",
@@ -269,10 +264,11 @@ module "ssh_setup" {
   ]
 }
 
-module "gem_setup" {
-  source   = "git::https://github.com/emboldagency/coder-gem-setup.git?ref=v1.0.0"
-  count    = data.coder_workspace.me.start_count
+module "home_setup" {
   agent_id = coder_agent.main.id
+  count    = data.coder_workspace.me.start_count
+  # source   = "git::https://github.com/emboldagency/coder-home-setup.git?ref=v1.0.0"
+  source   = "git::https://github.com/emboldagency/coder-home-setup.git"
 }
 
 module "dotfiles" {
@@ -284,29 +280,32 @@ module "dotfiles" {
 }
 
 module "link_dotfiles" {
-  # source = "../coder-link-dotfiles"
-  source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git?ref=v1.0.2"
-  count    = data.coder_workspace.me.start_count
   agent_id = coder_agent.main.id
-  # Pass the dotfiles URI from the first dotfiles module instance. The
-  # dotfiles module is created with `count`, so it returns a list; we take
-  # the first element here and replicate the link module per workspace.
+  count    = data.coder_workspace.me.start_count
   dotfiles_uri = module.dotfiles[0].dotfiles_uri
   # Ensure dotfiles are created before we try to link/copy them
   depends_on = [module.dotfiles]
+  # source = "../coder-link-dotfiles"
+  # source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git?ref=v1.0.0"
+  source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git"
+  # Pass the dotfiles URI from the first dotfiles module instance. The
+  # dotfiles module is created with `count`, so it returns a list; we take
+  # the first element here and replicate the link module per workspace.
+
 }
 
 module "coder-login" {
+  agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/coder-login/coder"
   version  = "1.1.0"
-  agent_id = coder_agent.main.id
 }
 
 module "code-server" {
+  agent_id     = coder_agent.main.id
+  count               = data.coder_workspace.me.start_count
   display_name = "VS Code Web"
   source       = "registry.coder.com/coder/code-server/coder"
-  agent_id     = coder_agent.main.id
   folder       = "/home/embold/code/${local.app}"
   # extensions   = []
   # settings = {
@@ -315,39 +314,43 @@ module "code-server" {
 }
 
 module "git-config" {
+  agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-config/coder"
   version  = "1.0.15"
-  agent_id = coder_agent.main.id
 }
 
 module "github-upload-public-key" {
+  agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/github-upload-public-key/coder"
   version  = "1.0.31"
-  agent_id = coder_agent.main.id
 }
 
 module "jetbrains" {
+  agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/jetbrains/coder"
   version  = "1.0.0"
-  agent_id = coder_agent.main.id
   folder   = "/home/embold/code/${local.app}"
   default  = ["RM"]
 }
 
 module "dynamic_services" {
-  source            = "git::https://github.com/emboldagency/coder-dynamic-resources.git?ref=v1.0.0"
   agent_id            = coder_agent.main.id
+  count               = data.coder_workspace.me.start_count
+  # source            = "git::https://github.com/emboldagency/coder-dynamic-resources.git?ref=v1.0.0"
+  source              = "git::https://github.com/emboldagency/coder-dynamic-resources.git"
   docker_network_name = docker_network.workspace[0].name
   resource_name_base  = local.resource_name_base
 }
 
 module "reverse_proxy" {
-  # source = "../coder-reverse-proxy"
-  source   = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.2"
   agent_id = coder_agent.main.id
+  count               = data.coder_workspace.me.start_count
+  # source = "../coder-reverse-proxy"
+  # source = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.0"
+  source   = "git::https://github.com/emboldagency/coder-reverse-proxy.git"
   proxy_mappings = [
     "18080:adminer:8080",
     "18025:mailpit:8025"

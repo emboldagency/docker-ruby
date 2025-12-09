@@ -616,6 +616,7 @@ resource "coder_app" "web_app" {
   subdomain    = true
   share        = "public"
   order        = 2
+  open_in      = "tab"
 }
 
 resource "coder_app" "adminer" {

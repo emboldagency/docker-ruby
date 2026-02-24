@@ -20,6 +20,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- ### Security -->
 
+## [v1.4.0](https://github.com/emboldagency/docker-ruby/tree/v1.4.0) - 2025-09-25
+
+Enhanced Docker builds, Ruby version support, and workspace robustness with timezone configuration and build optimizations.
+
+### Added
+
+- Docker build shell script
+- Timezone parameter support, defaulting to EST
+- Docker BuildKit registry cache for faster matrix builds
+- Builder stage and per-version Ruby stages in Dockerfile
+- Adminer database administration tools
+- Support for multiple Ruby versions with canonical GEM_HOME
+
+### Changed
+
+- Update terraform modules
+- Update Ruby versions and workflow matrix to block list style
+- Migrate legacy ~/.gems to canonical ~/.gem at container start
+- Rely on docker-base for libvips and imagemagick runtime
+- Enable Docker Hub registry build cache for ruby and adminer
+- Clean up terraform template variables
+- Reorder main.tf logically
+- Convert runtime scripts to Coder modules
+
+### Fixed
+
+- Make apt/postgres install robust against transient locks
+- Fix Dockerfile paths and ensure non-interactive installs
+- Fix webapp port configuration
+- Preserve cache mountpoint and use canonical GEM_HOME
+- Fix missing && operator in scripts
+- Suppress errors when removing gem credentials
+
+### Removed
+
+- GitHub Packages authentication from Ruby build
+- GHCR/GH_PACKAGES_TOKEN references from ruby workflow
+
+## [v1.3.0](https://github.com/emboldagency/docker-ruby/tree/v1.3.0) - 2025-08-07
+
+Major feature release adding development tools, external services, and modular architecture improvements.
+
+### Added
+
+- Homebrew (Linuxbrew) package manager support
+- Adminer database administration interface
+- Mailpit email testing tool
+- Caddy reverse proxy for service routing
+- Redis container for caching
+- GitHub authentication integration
+- Pulsar magic template functionality
+- Dotfiles module integration
+- DATABASE_URL environment variable
+
+### Changed
+
+- Refactored main.tf to utilize Coder modules
+- Updated Coder provider to latest version
+- Upgraded terraform modules
+- Enhanced metadata for Docker containers
+- Cleaned up local variables and reduced repetition
+- Moved adminer configs into build folder
+
+### Fixed
+
+- Dockerfile failing to install pulsar gems
+- Build process improvements
+
+[Full Changelog](https://github.com/emboldagency/docker-ruby/compare/v1.2.0...v1.3.0)
+
+
+
 ## [v1.2.0](https://github.com/emboldagency/docker-ruby/tree/v1.2.0) - 2024-08-07
 
 Added GitHub Actions workflows for DockerHub and Coder template publishing, and updated Coder provider, default parameter versions, fixed deprecations, and used locals to reduce repetition.

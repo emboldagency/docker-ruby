@@ -21,9 +21,9 @@ provider "coder" {}
 
 provider "docker" {
   registry_auth {
-    address  = "registry-1.docker.io"
-    username = "emboldcreative"
-    password = var.DOCKER_REGISTRY_PASS
+    address  = "ghcr.io"
+    username = "emboldagency"
+    password = var.GHP_REGISTRY_PASS
   }
 }
 
@@ -34,24 +34,34 @@ variable "DOCKER_REGISTRY_PASS" {
   sensitive = true
 }
 
-# =============================================================================
-# DATA SOURCES - CODER CONTEXT
-# =============================================================================
-data "coder_external_auth" "github" { id = "github" }
-data "coder_provisioner" "me" {}
-data "coder_workspace" "me" {}
-data "coder_workspace_owner" "me" {}
+variable "GHP_REGISTRY_PASS" {
+  sensitive = true
+}
 
 # =============================================================================
-# PARAMETERS - INFRASTRUCTURE
+# DATA SOURCES
+# =============================================================================
+data "coder_provisioner" "me" {}
+
+data "coder_workspace" "me" {}
+
+data "coder_workspace_owner" "me" {}
+
+data "coder_external_auth" "github" {
+  id = "github"
+}
+
+# =============================================================================
+# PARAMETERS
 # =============================================================================
 data "coder_parameter" "ruby_version" {
-  name        = "Ruby Version"
-  description = "Which version of Ruby? Must match a emboldcreative/ruby image tag on DockerHub"
-  icon        = "/icon/ruby.png"
-  type        = "string"
-  default     = "3.4.6"
-  mutable     = true
+  name         = "ruby_Version"
+  display_name = "Ruby Version"
+  description  = "Which version of Ruby? Must match a [ghcr.io/emboldagency/docker-ruby](https://github.com/emboldagency/docker-ruby/pkgs/container/docker-ruby) image tag."
+  icon         = "/icon/ruby.png"
+  type         = "string"
+  default      = "3.4.6"
+  mutable      = true
   option {
     name  = "3.4.6"
     value = "3.4.6"
@@ -79,12 +89,13 @@ data "coder_parameter" "ruby_version" {
 }
 
 data "coder_parameter" "ubuntu_version" {
-  name        = "Ubuntu Version"
-  description = "Which version of Ubuntu? Must match a emboldcreative/base image tag on DockerHub"
-  icon        = "/icon/ubuntu.svg"
-  type        = "string"
-  default     = "24.04"
-  mutable     = true
+  name         = "ubuntu_version"
+  display_name = "Ubuntu Version"
+  description  = "Which version of Ubuntu? Must match a [ghcr.io/emboldagency/docker-base](https://github.com/emboldagency/docker-base/pkgs/container/docker-base) image tag."
+  icon         = "/icon/ubuntu.svg"
+  type         = "string"
+  default      = "24.04"
+  mutable      = true
   option {
     name  = "24.04 LTS (Noble)"
     value = "24.04"
@@ -96,46 +107,44 @@ data "coder_parameter" "ubuntu_version" {
 }
 
 data "coder_parameter" "postgres_version" {
-  name        = "Postgres Version"
-  description = "What version of Postgres? Must match an official postgres image tag on DockerHub. NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start"
-  icon        = "/icon/database.svg"
-  type        = "string"
-  default     = "15"
-  mutable     = true
+  name         = "postgres_version"
+  display_name = "Postgres Version"
+  description  = "What version of Postgres? Must match an official postgres image tag on DockerHub. \n\n_NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start._"
+  icon         = "/icon/postgres.svg"
+  type         = "string"
+  default      = "15"
+  mutable      = true
 }
 
-# =============================================================================
-# PARAMETERS - APPLICATION
-# =============================================================================
 data "coder_parameter" "pulsar_app_name" {
-  name        = "Pulsar App Name"
-  description = "What is the Pulsar app name? If this is blank, the workspace name will be used."
-  icon        = "/icon/coder.svg"
-  type        = "string"
-  default     = ""
-  mutable     = true
+  name         = "pulsar_app_name"
+  display_name = "Pulsar App Name"
+  description  = "What is the Pulsar app name? If this is blank, the workspace name will be used."
+  icon         = "https://api.embold.net/icons/?name=title.svg&color=009dff"
+  type         = "string"
+  default      = ""
+  mutable      = true
 }
 
 data "coder_parameter" "pulsar_magic_template" {
-  name        = "Pulsar Magic Template?"
-  description = "Should we use the Pulsar magic template to dynamically build the Pulsar configuration?"
-  type        = "bool"
-  icon        = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3C!--!Font Awesome Free 6.7.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--%3E%3Cpath fill='%23009dff' d='M234.7 42.7L197 56.8c-3 1.1-5 4-5 7.2s2 6.1 5 7.2l37.7 14.1L248.8 123c1.1 3 4 5 7.2 5s6.1-2 7.2-5l14.1-37.7L315 71.2c3-1.1 5-4 5-7.2s-2-6.1-5-7.2L277.3 42.7 263.2 5c-1.1-3-4-5-7.2-5s-6.1 2-7.2 5L234.7 42.7zM46.1 395.4c-18.7 18.7-18.7 49.1 0 67.9l34.6 34.6c18.7 18.7 49.1 18.7 67.9 0L529.9 116.5c18.7-18.7 18.7-49.1 0-67.9L495.3 14.1c-18.7-18.7-49.1-18.7-67.9 0L46.1 395.4zM484.6 82.6l-105 105-23.3-23.3 105-105 23.3 23.3zM7.5 117.2C3 118.9 0 123.2 0 128s3 9.1 7.5 10.8L64 160l21.2 56.5c1.7 4.5 6 7.5 10.8 7.5s9.1-3 10.8-7.5L128 160l56.5-21.2c4.5-1.7 7.5-6 7.5-10.8s-3-9.1-7.5-10.8L128 96 106.8 39.5C105.1 35 100.8 32 96 32s-9.1 3-10.8 7.5L64 96 7.5 117.2zm352 256c-4.5 1.7-7.5 6-7.5 10.8s3 9.1 7.5 10.8L416 416l21.2 56.5c1.7 4.5 6 7.5 10.8 7.5s9.1-3 10.8-7.5L480 416l56.5-21.2c4.5-1.7 7.5-6 7.5-10.8s-3-9.1-7.5-10.8L480 352l-21.2-56.5c-1.7-4.5-6-7.5-10.8-7.5s-9.1 3-10.8 7.5L416 352l-56.5 21.2z'/%3E%3C/svg%3E" # font-awesome magic wand. alt: "/emojis/1fa84.png"
-  default     = false
-  mutable     = true
+  name         = "pulsar_magic_template"
+  display_name = "Pulsar Magic Template?"
+  description  = "Should we use the Pulsar magic template to dynamically build the Pulsar configuration?"
+  type         = "bool"
+  icon         = "https://api.embold.net/icons/?name=fas-magic-wand.svg&color=009dff"
+  default      = false
+  mutable      = true
 }
 
 data "coder_parameter" "rails_master_key" {
-  name        = "Rails Master Key"
-  description = "Enter the rails master key to use for encrypted credentials. This will set the RAILS_MASTER_KEY environment variable."
-  icon        = "/emojis/1f511.png"
-  type        = "string"
-  default     = ""
-  mutable     = true
+  name         = "rails_master_key"
+  display_name = "Rails Master Key"
+  description  = "Enter the rails master key to use for encrypted credentials. This will set the RAILS_MASTER_KEY environment variable."
+  type         = "string"
+  icon         = "https://api.embold.net/icons/?name=fas-key.svg&color=009dff"
+  default      = ""
+  mutable      = true
 }
-
-# =============================================================================
-# PARAMETERS - WORKSPACE PREFERENCES
 
 # =============================================================================
 # LOCALS
@@ -155,9 +164,9 @@ locals {
   rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
   resource_name_base    = "coder-${local.user_username}-${local.workspace_name}-${local.workspace_id}"
   ruby_version          = data.coder_parameter.ruby_version.value
-  template_version      = "1.4.0"
-  ubuntu_version        = data.coder_parameter.ubuntu_version.value
+  template_version      = "2026.02.23.0"
   timezone              = try(module.timezone[0].timezone, "UTC")
+  ubuntu_version        = data.coder_parameter.ubuntu_version.value
   user_email            = data.coder_workspace_owner.me.email
   user_full_name        = coalesce(data.coder_workspace_owner.me.full_name, local.user_username)
   user_id               = data.coder_workspace_owner.me.id
@@ -171,6 +180,7 @@ locals {
 # =============================================================================
 resource "coder_agent" "main" {
   arch                    = data.coder_provisioner.me.arch
+  dir                     = "/home/embold/code/${local.workspace_name}"
   os                      = "linux"
   startup_script_behavior = "blocking"
   env = {
@@ -185,33 +195,69 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_EMAIL    = local.user_email
     GIT_COMMITTER_NAME     = local.user_full_name
     PULSAR_MAGIC_TEMPLATE  = local.pulsar_magic_template
+    GITHUB_TOKEN           = data.coder_external_auth.github.access_token
     TZ                     = local.timezone
   }
+  startup_script = <<-EOT
+        set -e
+
+        embold='H4sIAAAAAAAAA52SMQ7DMAhFd5+CqWPv0itkyFDJErbk+h+/wcTGtM7Q/iUKmCf4QLRWNW0XT5YKV4k660cggJtFdmAAifgPIJCBJ0Q5vwQPA6YBtH6TpUXJZYIAlHkiZ6BN/Piw4BM4qAGdpMzO8x5G61TLvzvs32DNdTDy5GF/bsuZ/j1QY6F11hZjzAXQVy2B6uIBlGCzjs6RCx3MeeJUnfWjWpMuw+IhZQWRjb27iuiXmegSeGz5PvZb5AQLUcl7G2XjGNmfIEde3V7lWLfzZXgDYVxqC3sDAAA='
+        base64 -d <<<"$embold" | gunzip
+        echo
+    EOT
+
   metadata {
     display_name = "CPU Usage"
-    key          = "cpu"
+    key          = "0_cpu_usage"
     script       = "coder stat cpu"
     interval     = 30
     timeout      = 1
-    order        = 1
   }
+
   metadata {
-    display_name = "Memory Usage"
-    key          = "mem"
-    script       = "coder stat mem --prefix 'Gi' | sed 's/ //;s/iB//'"
-    interval     = 30
+    display_name = "RAM Usage"
+    key          = "1_ram_usage"
+    script       = "coder stat mem"
+    interval     = 10
     timeout      = 1
-    order        = 2
   }
-  # TODO: Re-enable these at some point
-  # metadata {
-  #   display_name = "Home Volume Size"
-  #   key          = "home_volume_size"
-  #   script       = "du -BG --apparent-size /home/embold | tail -1 | awk '{print $1}'"
-  #   interval     = 300
-  #   timeout      = 30
-  #   order        = 3
-  # }
+
+  metadata {
+    display_name = "Home Disk"
+    key          = "3_home_disk"
+    script       = "coder stat disk --path $HOME"
+    interval     = 60
+    timeout      = 1
+  }
+
+  metadata {
+    display_name = "CPU Usage (Host)"
+    key          = "4_cpu_usage_host"
+    script       = "coder stat cpu --host"
+    interval     = 10
+    timeout      = 1
+  }
+
+  metadata {
+    display_name = "Memory Usage (Host)"
+    key          = "5_mem_usage_host"
+    script       = "coder stat mem --host"
+    interval     = 10
+    timeout      = 1
+  }
+
+  metadata {
+    display_name = "Load Average (Host)"
+    key          = "6_load_host"
+    # get load avg scaled by number of cores
+    script   = <<EOT
+      echo "`cat /proc/loadavg | awk '{ print $1 }'` `nproc`" | awk '{ printf "%0.2f", $1/$2 }'
+    EOT
+    interval = 60
+    timeout  = 1
+  }
+
+  # TODO: Re-enable this at some point
   # metadata {
   #   display_name = "Database Size"
   #   key          = "postgres_volume_size"
@@ -220,40 +266,24 @@ resource "coder_agent" "main" {
   #   timeout      = 30
   #   order        = 4
   # }
-  startup_script = <<-EOT
-        set -e
-
-        embold='H4sIAAAAAAAAA52SMQ7DMAhFd5+CqWPv0itkyFDJErbk+h+/wcTGtM7Q/iUKmCf4QLRWNW0XT5YKV4k660cggJtFdmAAifgPIJCBJ0Q5vwQPA6YBtH6TpUXJZYIAlHkiZ6BN/Piw4BM4qAGdpMzO8x5G61TLvzvs32DNdTDy5GF/bsuZ/j1QY6F11hZjzAXQVy2B6uIBlGCzjs6RCx3MeeJUnfWjWpMuw+IhZQWRjb27iuiXmegSeGz5PvZb5AQLUcl7G2XjGNmfIEde3V7lWLfzZXgDYVxqC3sDAAA='
-        base64 -d <<<"$embold" | gunzip
-        echo
-    EOT
 }
-
-# resource "coder_agent" "postgres" {
-#   arch                    = data.coder_provisioner.me.arch
-#   os                      = "linux"
-#   startup_script_behavior = "blocking"
-#   env = {
-#     TZ = local.timezone
-#   }
-# }
 
 # =============================================================================
 # CODER SCRIPTS & MODULES
 # =============================================================================
 module "timezone" {
   agent_id = coder_agent.main.id
-  count               = data.coder_workspace.me.start_count
+  count    = data.coder_workspace.me.start_count
   # source = "../coder-timezone"
   # source   = "git::https://github.com/emboldagency/coder-timezone.git?ref=v1.0.0"
-  source   = "git::https://github.com/emboldagency/coder-timezone.git"
+  source = "git::https://github.com/emboldagency/coder-timezone.git"
 }
 
 module "ssh_setup" {
   agent_id = coder_agent.main.id
   # source = "../coder-ssh-setup"
   # source   = "git::https://github.com/emboldagency/coder-ssh-setup.git?ref=v1.0.0"
-  source   = "git::https://github.com/emboldagency/coder-ssh-setup.git"
+  source = "git::https://github.com/emboldagency/coder-ssh-setup.git"
   hosts = [
     "coder.ssh.embold.net:2022",
     "8.42.149.40:2022",
@@ -268,7 +298,7 @@ module "home_setup" {
   agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   # source   = "git::https://github.com/emboldagency/coder-home-setup.git?ref=v1.0.0"
-  source   = "git::https://github.com/emboldagency/coder-home-setup.git"
+  source = "git::https://github.com/emboldagency/coder-home-setup.git"
 }
 
 module "dotfiles" {
@@ -280,18 +310,14 @@ module "dotfiles" {
 }
 
 module "link_dotfiles" {
-  agent_id = coder_agent.main.id
-  count    = data.coder_workspace.me.start_count
+  agent_id     = coder_agent.main.id
+  count        = data.coder_workspace.me.start_count
   dotfiles_uri = module.dotfiles[0].dotfiles_uri
   # Ensure dotfiles are created before we try to link/copy them
   depends_on = [module.dotfiles]
   # source = "../coder-link-dotfiles"
   # source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git?ref=v1.0.0"
-  source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git"
-  # Pass the dotfiles URI from the first dotfiles module instance. The
-  # dotfiles module is created with `count`, so it returns a list; we take
-  # the first element here and replicate the link module per workspace.
-
+  source = "git::https://github.com/emboldagency/coder-link-dotfiles.git"
 }
 
 module "coder-login" {
@@ -302,15 +328,13 @@ module "coder-login" {
 }
 
 module "code-server" {
-  agent_id     = coder_agent.main.id
-  count               = data.coder_workspace.me.start_count
-  display_name = "VS Code Web"
+  count        = data.coder_workspace.me.start_count
   source       = "registry.coder.com/coder/code-server/coder"
+  version      = "~> 1.0"
+  agent_id     = coder_agent.main.id
+  display_name = "VS Code Web"
   folder       = "/home/embold/code/${local.app}"
-  # extensions   = []
-  # settings = {
-  #   "workbench.colorTheme" : data.coder_parameter.vscode_web_theme.value
-  # }
+  order        = 1
 }
 
 module "git-config" {
@@ -328,34 +352,44 @@ module "github-upload-public-key" {
 }
 
 module "jetbrains" {
-  agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/jetbrains/coder"
-  version  = "1.0.0"
+  agent_id = coder_agent.main.id
+  version  = "~> 1.0"
   folder   = "/home/embold/code/${local.app}"
   default  = ["RM"]
 }
 
-module "dynamic_services" {
-  agent_id            = coder_agent.main.id
+module "mailpit" {
   count               = data.coder_workspace.me.start_count
+  source              = "git::https://github.com/emboldagency/coder-mailpit.git?ref=v1.0.0"
+  agent_id            = coder_agent.main.id
+  docker_network_name = docker_network.workspace[0].name
+  resource_name_base  = "coder-${local.user_username}-${local.workspace_name}"
+  proxy_mappings      = ["18025:mailpit:8025"]
+}
+
+module "dynamic_services" {
+  agent_id = coder_agent.main.id
+  count    = data.coder_workspace.me.start_count
   # source            = "git::https://github.com/emboldagency/coder-dynamic-resources.git?ref=v1.0.0"
   source              = "git::https://github.com/emboldagency/coder-dynamic-resources.git"
   docker_network_name = docker_network.workspace[0].name
   resource_name_base  = local.resource_name_base
+  order               = 20
 }
 
-module "reverse_proxy" {
-  agent_id = coder_agent.main.id
-  count               = data.coder_workspace.me.start_count
-  # source = "../coder-reverse-proxy"
-  # source = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.0"
-  source   = "git::https://github.com/emboldagency/coder-reverse-proxy.git"
-  proxy_mappings = [
-    "18080:adminer:8080",
-    "18025:mailpit:8025"
-  ]
-}
+# module "reverse_proxy" {
+#   agent_id = coder_agent.main.id
+#   count    = data.coder_workspace.me.start_count
+#   # source = "../coder-reverse-proxy"
+#   # source = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.0"
+#   source = "git::https://github.com/emboldagency/coder-reverse-proxy.git"
+#   proxy_mappings = [
+#     "18080:adminer:8080",
+#     "18025:mailpit:8025"
+#   ]
+# }
 
 resource "coder_script" "prepare_rails" {
   agent_id     = coder_agent.main.id
@@ -366,7 +400,7 @@ resource "coder_script" "prepare_rails" {
         set -e
         # Remove potentially stale Rails server.pid file
         if [ -f $HOME/code/$APP/tmp/pids/server.pid ]; then
-          echo "INFO: Removing stale Rails server.pid file"
+          echo "Removing stale Rails server.pid file"
           rm -f $HOME/code/$APP/tmp/pids/server.pid
         fi
     EOT
@@ -408,7 +442,8 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_volume" "postgres_volume" {
-  name = "${local.resource_name_base}-postgres"
+  count = data.coder_workspace.me.start_count
+  name  = "${local.resource_name_base}-postgres"
   lifecycle {
     ignore_changes = all
   }
@@ -434,7 +469,8 @@ resource "docker_volume" "postgres_volume" {
 }
 
 resource "docker_volume" "mailpit_volume" {
-  name = "${local.resource_name_base}-mailpit"
+  count = data.coder_workspace.me.start_count
+  name  = "${local.resource_name_base}-mailpit"
   lifecycle {
     ignore_changes = all
   }
@@ -463,7 +499,7 @@ resource "docker_volume" "mailpit_volume" {
 # DOCKER IMAGES
 # =============================================================================
 data "docker_registry_image" "ruby" {
-  name = "emboldcreative/ruby:${local.ruby_version}-ubuntu${local.ubuntu_version}-release${local.template_version}"
+  name = "ghcr.io/emboldagency/docker-ruby:${local.ruby_version}-ubuntu${local.ubuntu_version}-release${local.template_version}"
 }
 
 resource "docker_image" "ruby" {
@@ -473,7 +509,7 @@ resource "docker_image" "ruby" {
 }
 
 data "docker_registry_image" "adminer" {
-  name = "emboldcreative/adminer-coder:latest"
+  name = "emboldagency/docker-adminer-coder:latest"
 }
 
 resource "docker_image" "adminer" {
@@ -495,33 +531,6 @@ resource "docker_image" "mailpit" {
 # =============================================================================
 # DOCKER CONTAINERS
 # =============================================================================
-
-resource "docker_container" "postgres" {
-  count        = data.coder_workspace.me.start_count
-  name         = "${local.resource_name_base}-postgres"
-  image        = "postgres:${local.postgres_version}"
-  hostname     = "postgres"
-  network_mode = docker_network.workspace[count.index].name
-  env = [
-    "POSTGRES_DB=${local.db_name}",
-    "POSTGRES_USER=embold",
-    "POSTGRES_PASSWORD=embold",
-  ]
-  volumes {
-    container_path = "/var/lib/postgresql/data"
-    volume_name    = docker_volume.postgres_volume.name
-    read_only      = false
-  }
-  healthcheck {
-    test = [
-      "CMD-SHELL", "pg_isready -q -d ${local.db_name} -U embold"
-    ]
-    interval = "30s"
-    timeout  = "5s"
-    retries  = 3
-  }
-}
-
 resource "docker_container" "workspace" {
   count      = data.coder_workspace.me.start_count
   image      = docker_image.ruby.name
@@ -546,8 +555,52 @@ resource "docker_container" "workspace" {
     volume_name    = docker_volume.home_volume.name
     read_only      = false
   }
+
+  labels {
+    label = "coder.owner"
+    value = local.user_username
+  }
+
+  labels {
+    label = "coder.owner_id"
+    value = local.user_id
+  }
+
+  labels {
+    label = "coder.workspace_id"
+    value = local.workspace_id
+  }
+
+  labels {
+    label = "coder.workspace_name"
+    value = local.workspace_name
+  }
+}
+
+resource "docker_container" "postgres" {
+  count        = data.coder_workspace.me.start_count
+  name         = "${local.resource_name_base}-postgres"
+  image        = "postgres:${local.postgres_version}"
+  hostname     = "postgres"
   network_mode = docker_network.workspace[count.index].name
-  # Add labels in Docker to keep track of orphan resources.
+  env = [
+    "POSTGRES_DB=${local.db_name}",
+    "POSTGRES_USER=embold",
+    "POSTGRES_PASSWORD=embold",
+  ]
+  volumes {
+    container_path = "/var/lib/postgresql/data"
+    volume_name    = docker_volume.postgres_volume[count.index].name
+    read_only      = false
+  }
+  healthcheck {
+    test = [
+      "CMD-SHELL", "pg_isready -q -d ${local.db_name} -U embold"
+    ]
+    interval = "30s"
+    timeout  = "5s"
+    retries  = 3
+  }
   labels {
     label = "coder.owner"
     value = local.user_username
@@ -559,10 +612,6 @@ resource "docker_container" "workspace" {
   labels {
     label = "coder.workspace_id"
     value = local.workspace_id
-  }
-  labels {
-    label = "coder.workspace_name"
-    value = local.workspace_name
   }
 }
 
@@ -581,6 +630,18 @@ resource "docker_container" "adminer" {
     "ADMINER_DESIGN=pappu687",
     "ADMINER_PLUGINS=adminer-auto-login",
   ]
+  labels {
+    label = "coder.owner"
+    value = local.user_username
+  }
+  labels {
+    label = "coder.owner_id"
+    value = local.user_id
+  }
+  labels {
+    label = "coder.workspace_id"
+    value = local.workspace_id
+  }
 }
 
 resource "docker_container" "mailpit" {
@@ -597,10 +658,26 @@ resource "docker_container" "mailpit" {
     "MP_SMTP_BIND_ADDR=0.0.0.0:1025",
     "MP_UI_BIND_ADDR=0.0.0.0:8025",
   ]
+
   volumes {
     container_path = "/data"
-    volume_name    = docker_volume.mailpit_volume.name
+    volume_name    = docker_volume.mailpit_volume[count.index].name
     read_only      = false
+  }
+
+  labels {
+    label = "coder.owner"
+    value = local.user_username
+  }
+
+  labels {
+    label = "coder.owner_id"
+    value = local.user_id
+  }
+
+  labels {
+    label = "coder.workspace_id"
+    value = local.workspace_id
   }
 }
 
@@ -608,10 +685,11 @@ resource "docker_container" "mailpit" {
 # CODER APPS & UI
 # =============================================================================
 resource "coder_app" "web_app" {
+  count        = data.coder_workspace.me.start_count
   agent_id     = coder_agent.main.id
   display_name = "Web App"
   slug         = "webapp"
-  icon         = "/emojis/1f310.png"
+  icon         = "https://api.embold.net/icons/?name=fas-globe.svg&color=009dff"
   url          = "http://localhost:3000"
   subdomain    = true
   share        = "public"
@@ -620,13 +698,15 @@ resource "coder_app" "web_app" {
 }
 
 resource "coder_app" "adminer" {
+  count        = data.coder_workspace.me.start_count
   agent_id     = coder_agent.main.id
   slug         = "adminer"
   display_name = "Adminer"
   url          = "http://localhost:18080"
-  icon         = "http://www.adminer.org/favicon.ico"
+  icon         = "https://api.embold.net/icons/?name=adminer.svg"
   share        = "authenticated"
   order        = 2
+
   healthcheck {
     url       = "http://localhost:18080"
     interval  = 5
@@ -635,14 +715,16 @@ resource "coder_app" "adminer" {
 }
 
 resource "coder_app" "mailpit" {
+  count        = data.coder_workspace.me.start_count
   agent_id     = coder_agent.main.id
   slug         = "mailpit"
   display_name = "Mailpit"
   url          = "http://localhost:18025"
   share        = "authenticated"
   subdomain    = true
-  icon         = "https://mailpit.axllent.org/images/mailpit.svg"
+  icon         = "https://api.embold.net/icons/?name=mailpit.svg"
   order        = 3
+
   healthcheck {
     url       = "http://localhost:18025"
     interval  = 5
@@ -656,23 +738,28 @@ resource "coder_app" "mailpit" {
 # =============================================================================
 resource "coder_metadata" "container_info" {
   count       = data.coder_workspace.me.start_count
-  resource_id = docker_container.workspace[0].id
+  resource_id = coder_agent.main.id
+
   item {
     key   = "Ruby"
     value = local.ruby_version
   }
+
   item {
     key   = local.db_key
     value = local.db_version
   }
+
   item {
     key   = "Ubuntu"
     value = local.ubuntu_version
   }
+
   item {
     key   = "Image"
     value = basename(docker_image.ruby.name)
   }
+
   item {
     key   = "Template"
     value = local.template_version

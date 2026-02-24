@@ -3,8 +3,8 @@ name: Build and Deploy
 on:
   push:
     tags:
-      # Match a tag with the format v1.0.0
-      - "v[0-9]+.[0-9]+.[0-9]"
+      # Match a tag with the format v2026.02.20.0
+      - "v[0-9]+.[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
       skip-jobs:
@@ -52,11 +52,30 @@ jobs:
         with:
           buildkitd-flags: --debug
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Ruby Image metadata
+        id: meta-ruby
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/emboldagency/docker-ruby
+          tags: |
+            type=match,pattern=v(.*),group=1,prefix=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-
+            type=raw,value=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
+
+      - name: Extract Devcontainer Image metadata
+        id: meta-devcontainer
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/emboldagency/docker-devcontainer
+          tags: |
+            type=match,pattern=v(.*),group=1,prefix=ruby${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-
+            type=raw,value=ruby${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
@@ -66,12 +85,25 @@ jobs:
           push: true
           cache-from: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-ruby-build-cache:cache
           cache-to: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-ruby-build-cache:cache,mode=max
-          tags: |
-            ${{ secrets.DOCKER_USER }}/ruby:${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-${{ github.ref_name }}
-            ${{ secrets.DOCKER_USER }}/ruby:${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
+          tags: ${{ steps.meta-ruby.outputs.tags }}
+          labels: ${{ steps.meta-ruby.outputs.labels }}
           build-args: |
             RUBY_VERSION=${{ matrix.ruby_version }}
             UBUNTU_VERSION=${{ matrix.ubuntu_version }}
+          cache: true
+
+      - name: Build and Push Devcontainer Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./build
+          file: ./build/devcontainer/Dockerfile
+          push: true
+          tags: ${{ steps.meta-devcontainer.outputs.tags }}
+          labels: ${{ steps.meta-devcontainer.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=ghcr.io/emboldagency/docker-ruby:${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-devcontainer-build-cache:cache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-devcontainer-build-cache:cache,mode=max
           cache: true
 
   build-and-push-adminer:
@@ -85,11 +117,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Adminer Image
         uses: docker/build-push-action@v6
@@ -100,8 +133,8 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKER_USER }}/adminer-build-cache:cache
           cache-to: type=registry,ref=${{ secrets.DOCKER_USER }}/adminer-build-cache:cache,mode=max
           tags: |
-            ${{ secrets.DOCKER_USER }}/adminer:latest
-            ${{ secrets.DOCKER_USER }}/adminer:${{ github.ref_name }}
+            ghcr.io/emboldagency/docker-adminer:latest
+            ghcr.io/emboldagency/docker-adminer:${{ github.ref_name }}
           build-args: |
             ADMINER_VERSION=latest
           cache: true

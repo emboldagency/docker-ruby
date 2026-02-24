@@ -66,17 +66,18 @@ export TEMPLATE_VERSION=1.4.0
 ```
 
 Build the image:
-docker buildx build -t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
+```bash
+docker buildx build -t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
  --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
-
 ````
 
 If you need full BuildKit output (useful for debugging) you have two options:
-1) Add `--progress=plain` to stream the BuildKit output to your terminal:
+
+1. Add `--progress=plain` to stream the BuildKit output to your terminal:
 ```bash
 docker buildx build --progress=plain \
-	-t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
+	-t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
 	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
 ````
@@ -85,34 +86,45 @@ docker buildx build --progress=plain \
 
 ```bash
 DOCKER_BUILDKIT=1 docker buildx build --progress=plain \
-	-t emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
+	-t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
 	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load 2>&1 | tee build.log
 ```
 
-Push the image to the registry:
+If you are pushing to GHCR, authenticate first.
+
+- The username is the owner of the PAT.
+- The password is in Bitwarden on the `GitHub (Alert/Staging)` entry as `GHCR Token (Write)`.
 
 ```bash
-docker push emboldcreative/ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION}
+export GHCR_USER="emboldagency"
+export GHCR_TOKEN="<your-ghcr-pat-with-packages-write>"
+echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 ```
 
-## Companion Docker Images
+Push the image to the registry
+
+```bash
+docker push ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION}
+```
+
+<!-- ## Companion Docker Images
 
 This template uses custom Docker images for supporting services:
 
 ### Adminer (Database Management)
 
 - **Repository**: [emboldagency/adminer-coder](https://github.com/emboldagency/adminer-coder)
-- **Docker Hub**: `emboldcreative/adminer-coder:latest`
+- **Docker Hub**: `ghcr.io/emboldagency/docker-adminer-coder:latest`
 - **Features**: Coder-compatible, auto-login plugin, multi-database support
 
 ### Mailpit (Email Testing)
 
 - **Repository**: [emboldagency/mailpit-coder](https://github.com/emboldagency/mailpit-coder)
-- **Docker Hub**: `emboldcreative/mailpit-coder:latest`
+- **Docker Hub**: `ghcr.io/emboldagency/docker-mailpit-coder:latest`
 - **Features**: Coder-compatible, web UI on port 18025, SMTP on port 1025
 
-These images are pre-built and available on Docker Hub. The template pulls them automatically rather than building locally for faster workspace startup.
+These images are pre-built and available on Docker Hub. The template pulls them automatically rather than building locally for faster workspace startup. -->
 
 ## Notes on build stages and slimming
 

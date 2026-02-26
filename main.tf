@@ -5,11 +5,11 @@ terraform {
   required_providers {
     coder = {
       source  = "coder/coder"
-      version = "~> 2.11.0"
+      version = "~> 2.13"
     }
     docker = {
       source  = "kreuzwerker/docker"
-      version = "~> 3.6.2"
+      version = "~> 3.6"
     }
   }
 }
@@ -30,10 +30,6 @@ provider "docker" {
 # =============================================================================
 # VARIABLES
 # =============================================================================
-variable "DOCKER_REGISTRY_PASS" {
-  sensitive = true
-}
-
 variable "GHP_REGISTRY_PASS" {
   sensitive = true
 }
@@ -54,6 +50,26 @@ data "coder_external_auth" "github" {
 # =============================================================================
 # PARAMETERS
 # =============================================================================
+data "coder_parameter" "pulsar_app_name" {
+  name        = "Pulsar App Name"
+  description = "What is the Pulsar app name? If this is blank, the workspace name will be used."
+  icon        = "https://api.embold.net/icons/?name=title.svg&color=009dff"
+  type        = "string"
+  default     = ""
+  mutable     = true
+  order       = 1
+}
+
+data "coder_parameter" "pulsar_magic_template" {
+  name        = "Pulsar Magic Template?"
+  description = "Should we use the Pulsar magic template to dynamically build the Pulsar configuration?"
+  type        = "bool"
+  icon        = "https://api.embold.net/icons/?name=fas-magic-wand.svg&color=009dff"
+  default     = false
+  mutable     = true
+  order       = 2
+}
+
 data "coder_parameter" "ruby_version" {
   name         = "ruby_Version"
   display_name = "Ruby Version"
@@ -62,6 +78,7 @@ data "coder_parameter" "ruby_version" {
   type         = "string"
   default      = "3.4.6"
   mutable      = true
+  order        = 3
   option {
     name  = "3.4.6"
     value = "3.4.6"
@@ -96,6 +113,7 @@ data "coder_parameter" "ubuntu_version" {
   type         = "string"
   default      = "24.04"
   mutable      = true
+  order        = 4
   option {
     name  = "24.04 LTS (Noble)"
     value = "24.04"
@@ -114,26 +132,7 @@ data "coder_parameter" "postgres_version" {
   type         = "string"
   default      = "15"
   mutable      = true
-}
-
-data "coder_parameter" "pulsar_app_name" {
-  name         = "pulsar_app_name"
-  display_name = "Pulsar App Name"
-  description  = "What is the Pulsar app name? If this is blank, the workspace name will be used."
-  icon         = "https://api.embold.net/icons/?name=title.svg&color=009dff"
-  type         = "string"
-  default      = ""
-  mutable      = true
-}
-
-data "coder_parameter" "pulsar_magic_template" {
-  name         = "pulsar_magic_template"
-  display_name = "Pulsar Magic Template?"
-  description  = "Should we use the Pulsar magic template to dynamically build the Pulsar configuration?"
-  type         = "bool"
-  icon         = "https://api.embold.net/icons/?name=fas-magic-wand.svg&color=009dff"
-  default      = false
-  mutable      = true
+  order        = 5
 }
 
 data "coder_parameter" "rails_master_key" {
@@ -144,6 +143,7 @@ data "coder_parameter" "rails_master_key" {
   icon         = "https://api.embold.net/icons/?name=fas-key.svg&color=009dff"
   default      = ""
   mutable      = true
+  order        = 6
 }
 
 # =============================================================================
@@ -164,7 +164,7 @@ locals {
   rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
   resource_name_base    = "coder-${local.user_username}-${local.workspace_name}-${local.workspace_id}"
   ruby_version          = data.coder_parameter.ruby_version.value
-  template_version      = "2026.02.23.0"
+  template_version      = "2026.02.25.0"
   timezone              = try(module.timezone[0].timezone, "UTC")
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
   user_email            = data.coder_workspace_owner.me.email
@@ -272,18 +272,14 @@ resource "coder_agent" "main" {
 # CODER SCRIPTS & MODULES
 # =============================================================================
 module "timezone" {
+  source   = "git::https://github.com/emboldagency/coder-registry.git//modules/timezone?ref=v2026.02.25.0"
   agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
-  # source = "../coder-timezone"
-  # source   = "git::https://github.com/emboldagency/coder-timezone.git?ref=v1.0.0"
-  source = "git::https://github.com/emboldagency/coder-timezone.git"
 }
 
 module "ssh_setup" {
+  source   = "git::https://github.com/emboldagency/coder-registry.git//modules/ssh-setup?ref=v2026.02.25.0"
   agent_id = coder_agent.main.id
-  # source = "../coder-ssh-setup"
-  # source   = "git::https://github.com/emboldagency/coder-ssh-setup.git?ref=v1.0.0"
-  source = "git::https://github.com/emboldagency/coder-ssh-setup.git"
   hosts = [
     "coder.ssh.embold.net:2022",
     "8.42.149.40:2022",
@@ -295,29 +291,17 @@ module "ssh_setup" {
 }
 
 module "home_setup" {
+  source   = "git::https://github.com/emboldagency/coder-registry.git//modules/home-setup?ref=v2026.02.25.0"
   agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
-  # source   = "git::https://github.com/emboldagency/coder-home-setup.git?ref=v1.0.0"
-  source = "git::https://github.com/emboldagency/coder-home-setup.git"
 }
 
 module "dotfiles" {
-  agent_id      = coder_agent.main.id
-  count         = data.coder_workspace.me.start_count
-  source        = "registry.coder.com/coder/dotfiles/coder"
-  version       = "1.2.1"
-  manual_update = true
-}
-
-module "link_dotfiles" {
-  agent_id     = coder_agent.main.id
-  count        = data.coder_workspace.me.start_count
-  dotfiles_uri = module.dotfiles[0].dotfiles_uri
-  # Ensure dotfiles are created before we try to link/copy them
-  depends_on = [module.dotfiles]
-  # source = "../coder-link-dotfiles"
-  # source   = "git::https://github.com/emboldagency/coder-link-dotfiles.git?ref=v1.0.0"
-  source = "git::https://github.com/emboldagency/coder-link-dotfiles.git"
+  source          = "git::https://github.com/emboldagency/coder-registry.git//modules/dotfiles?ref=v2026.02.25.0"
+  count           = data.coder_workspace.me.start_count
+  agent_id        = coder_agent.main.id
+  user            = "embold"
+  parameter_order = 10
 }
 
 module "coder-login" {
@@ -361,35 +345,31 @@ module "jetbrains" {
 }
 
 module "mailpit" {
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/mailpit?ref=v2026.02.25.0"
   count               = data.coder_workspace.me.start_count
-  source              = "git::https://github.com/emboldagency/coder-mailpit.git?ref=v1.0.0"
   agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
-  resource_name_base  = "coder-${local.user_username}-${local.workspace_name}"
-  proxy_mappings      = ["18025:mailpit:8025"]
+  resource_name_base  = local.resource_name_base
 }
 
 module "dynamic_services" {
-  agent_id = coder_agent.main.id
-  count    = data.coder_workspace.me.start_count
-  # source            = "git::https://github.com/emboldagency/coder-dynamic-resources.git?ref=v1.0.0"
-  source              = "git::https://github.com/emboldagency/coder-dynamic-resources.git"
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/dynamic-resources?ref=v2026.02.25.0"
+  count               = data.coder_workspace.me.start_count
+  agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
   resource_name_base  = local.resource_name_base
-  order               = 20
 }
 
-# module "reverse_proxy" {
-#   agent_id = coder_agent.main.id
-#   count    = data.coder_workspace.me.start_count
-#   # source = "../coder-reverse-proxy"
-#   # source = "git::https://github.com/emboldagency/coder-reverse-proxy.git?ref=v1.0.0"
-#   source = "git::https://github.com/emboldagency/coder-reverse-proxy.git"
-#   proxy_mappings = [
-#     "18080:adminer:8080",
-#     "18025:mailpit:8025"
-#   ]
-# }
+module "adminer" {
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/adminer?ref=v2026.02.25.0"
+  count               = data.coder_workspace.me.start_count
+  agent_id            = coder_agent.main.id
+  docker_network_name = docker_network.workspace[0].name
+  resource_name_base  = local.resource_name_base
+  db_name             = local.db_name
+  db_driver           = "server"
+  proxy_mappings      = ["18080:adminer:8080"]
+}
 
 resource "coder_script" "prepare_rails" {
   agent_id     = coder_agent.main.id
@@ -508,25 +488,7 @@ resource "docker_image" "ruby" {
   keep_locally  = true
 }
 
-data "docker_registry_image" "adminer" {
-  name = "emboldagency/docker-adminer-coder:latest"
-}
 
-resource "docker_image" "adminer" {
-  name          = data.docker_registry_image.adminer.name
-  pull_triggers = [data.docker_registry_image.adminer.sha256_digest]
-  keep_locally  = true
-}
-
-data "docker_registry_image" "mailpit" {
-  name = "axllent/mailpit:latest"
-}
-
-resource "docker_image" "mailpit" {
-  name          = data.docker_registry_image.mailpit.name
-  pull_triggers = [data.docker_registry_image.mailpit.sha256_digest]
-  keep_locally  = true
-}
 
 # =============================================================================
 # DOCKER CONTAINERS
@@ -615,71 +577,7 @@ resource "docker_container" "postgres" {
   }
 }
 
-resource "docker_container" "adminer" {
-  count        = data.coder_workspace.me.start_count
-  network_mode = docker_network.workspace[count.index].name
-  name         = "${local.resource_name_base}-adminer"
-  image        = docker_image.adminer.name
-  hostname     = "adminer"
-  env = [
-    "ADMINER_DEFAULT_DB=${local.db_name}",
-    "ADMINER_DEFAULT_DRIVER=pgsql",
-    "ADMINER_DEFAULT_PASSWORD=embold",
-    "ADMINER_DEFAULT_SERVER=postgres",
-    "ADMINER_DEFAULT_USERNAME=embold",
-    "ADMINER_DESIGN=pappu687",
-    "ADMINER_PLUGINS=adminer-auto-login",
-  ]
-  labels {
-    label = "coder.owner"
-    value = local.user_username
-  }
-  labels {
-    label = "coder.owner_id"
-    value = local.user_id
-  }
-  labels {
-    label = "coder.workspace_id"
-    value = local.workspace_id
-  }
-}
 
-resource "docker_container" "mailpit" {
-  count        = data.coder_workspace.me.start_count
-  name         = "${local.resource_name_base}-mailpit"
-  image        = docker_image.mailpit.name
-  hostname     = "mailpit"
-  network_mode = docker_network.workspace[count.index].name
-  env = [
-    "MP_API_PORT=8026",
-    "MP_DATABASE=/data/mailpit.db",
-    "MP_MAX_AGE=30d",
-    "MP_MAX_MESSAGES=5000",
-    "MP_SMTP_BIND_ADDR=0.0.0.0:1025",
-    "MP_UI_BIND_ADDR=0.0.0.0:8025",
-  ]
-
-  volumes {
-    container_path = "/data"
-    volume_name    = docker_volume.mailpit_volume[count.index].name
-    read_only      = false
-  }
-
-  labels {
-    label = "coder.owner"
-    value = local.user_username
-  }
-
-  labels {
-    label = "coder.owner_id"
-    value = local.user_id
-  }
-
-  labels {
-    label = "coder.workspace_id"
-    value = local.workspace_id
-  }
-}
 
 # =============================================================================
 # CODER APPS & UI
@@ -697,40 +595,7 @@ resource "coder_app" "web_app" {
   open_in      = "tab"
 }
 
-resource "coder_app" "adminer" {
-  count        = data.coder_workspace.me.start_count
-  agent_id     = coder_agent.main.id
-  slug         = "adminer"
-  display_name = "Adminer"
-  url          = "http://localhost:18080"
-  icon         = "https://api.embold.net/icons/?name=adminer.svg"
-  share        = "authenticated"
-  order        = 2
 
-  healthcheck {
-    url       = "http://localhost:18080"
-    interval  = 5
-    threshold = 6
-  }
-}
-
-resource "coder_app" "mailpit" {
-  count        = data.coder_workspace.me.start_count
-  agent_id     = coder_agent.main.id
-  slug         = "mailpit"
-  display_name = "Mailpit"
-  url          = "http://localhost:18025"
-  share        = "authenticated"
-  subdomain    = true
-  icon         = "https://api.embold.net/icons/?name=mailpit.svg"
-  order        = 3
-
-  healthcheck {
-    url       = "http://localhost:18025"
-    interval  = 5
-    threshold = 6
-  }
-}
 
 
 # =============================================================================

@@ -1,0 +1,83 @@
+ARG ALPINE_VERSION=3.20
+FROM ghcr.io/emboldagency/docker-base:alpine${ALPINE_VERSION} AS gem-builder
+
+ENV GEM_HOME=/coder/gems \
+	PATH=/coder/gems/bin:$PATH \
+	BUNDLE_DISABLE_SHARED_GEMS=1 \
+	BUNDLE_SILENCE_ROOT_WARNING=1 \
+	PULSAR_CONF_REPO="git@github.com:emboldagency/pulsar.git"
+
+USER root
+
+# Install compilers and headers needed to build gems
+RUN apk add --no-cache \
+	ruby \
+	ruby-dev \
+	ruby-bundler \
+	build-base \
+	git \
+	libffi-dev
+
+RUN mkdir -p /coder/gems \
+    && chown -R embold:embold /coder/gems
+
+# Install system gems
+RUN gem install bundler rails specific_install colorls rake \
+    && gem specific_install https://github.com/emboldagency/pulsar-embold.git \
+    && rm -rf "$GEM_HOME/cache"/* || true
+
+# =============================================================================
+# Final Image
+# =============================================================================
+FROM ghcr.io/emboldagency/docker-base:alpine${ALPINE_VERSION} AS final
+
+# Re-declare ARG
+ARG ALPINE_VERSION
+
+USER root
+
+# Install Runtime Dependencies
+RUN apk update \
+	&& apk add --no-cache \
+    # Compilers / Headers for native extensions
+    build-base \
+    # Standard headers
+    linux-headers \
+    # Image Libraries
+    libjpeg-turbo-dev \
+    libpng-dev \
+    tiff-dev \
+    libwebp-dev \
+    yaml-dev \
+    zlib-dev \
+    libffi-dev \
+    # PostgreSQL client library
+    postgresql-dev \
+    postgresql-client \
+    pkgconfig \
+    # Ruby Core Packages
+    ruby \
+    ruby-dev \
+    ruby-bundler \
+    ruby-rdoc
+
+# Copy compiled Gems from the builder stage
+COPY --from=gem-builder --chown=embold:embold /coder/gems /coder/gems
+
+# Setup Profile
+RUN printf 'export GEM_HOME=%s\nexport GEM_PATH=%s\nexport PATH=%s\n' \
+    "/home/embold/.gems" \
+    "/home/embold/.gems:/coder/gems" \
+    "/home/embold/.gems/bin:/coder/gems/bin:\$PATH" > /etc/profile.d/embold-gems.sh \
+    && chmod 0755 /etc/profile.d/embold-gems.sh
+
+# Environment settings for Ruby
+ENV BUNDLE_APP_CONFIG=/home/embold/.gems \
+    GEM_HOME=/home/embold/.gems \
+    GEM_PATH=/home/embold/.gems:/coder/gems \
+    PATH=/home/embold/.gems/bin:/coder/gems/bin:$PATH
+
+USER embold
+WORKDIR /home/embold
+
+CMD ["/bin/zsh"]

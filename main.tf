@@ -157,7 +157,7 @@ locals {
   rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
   resource_name_base    = "coder-${local.user_username}-${local.workspace_name}"
   ruby_version          = data.coder_parameter.ruby_version.value
-  template_version      = "2026.03.11.0"
+  template_version      = "2026.03.12.0"
   timezone              = coalesce(module.timezone.timezone, "UTC")
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
   user_email            = data.coder_workspace_owner.me.email
@@ -294,7 +294,7 @@ resource "docker_network" "workspace" {
 }
 
 resource "docker_volume" "home_volume" {
-  name = "${local.resource_name_base}-home"
+  name = "${local.resource_name_base}-${local.workspace_id}-home"
 
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
@@ -323,7 +323,7 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_volume" "postgres_volume" {
-  name = "${local.resource_name_base}-postgres"
+  name = "${local.resource_name_base}-${local.workspace_id}-postgres"
 
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
@@ -386,11 +386,10 @@ data "docker_registry_image" "ruby" {
 }
 
 resource "docker_image" "ruby" {
-  name          = "ghcr.io/emboldagency/docker-ruby:${local.ruby_version}-ubuntu${local.ubuntu_version}-${local.template_version}"
+  name          = data.docker_registry_image.ruby.name
   pull_triggers = [data.docker_registry_image.ruby.sha256_digest]
   keep_locally  = true
 }
-
 
 resource "docker_container" "workspace" {
   count        = data.coder_workspace.me.start_count
@@ -401,6 +400,7 @@ resource "docker_container" "workspace" {
   network_mode = docker_network.workspace[count.index].name
 
   env = compact([
+    "APP=${local.app}",
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "DATABASE_URL=postgresql://embold:embold@postgres:5432/${local.db_name}",
     "GITHUB_TOKEN=${local.github_token}",
@@ -525,7 +525,7 @@ module "dynamic_services" {
   count               = data.coder_workspace.me.start_count
   agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
-  resource_name_base  = "coder-${local.user_username}-${local.workspace_name}"
+  resource_name_base  = local.resource_name_base
   parameter_order     = 30 # 34 parameters (pushed towards end)
 }
 
@@ -558,7 +558,7 @@ module "mailpit" {
   count               = data.coder_workspace.me.start_count
   agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
-  resource_name_base  = "coder-${local.user_username}-${local.workspace_name}"
+  resource_name_base  = local.resource_name_base
   proxy_mappings      = ["18025:mailpit:8025"]
 }
 

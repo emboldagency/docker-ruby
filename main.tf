@@ -63,20 +63,24 @@ data "coder_parameter" "ruby_version" {
   description  = "Which version of Ruby? Must match a [ghcr.io/emboldagency/docker-ruby](https://github.com/emboldagency/docker-ruby/pkgs/container/docker-ruby) image tag."
   icon         = "/icon/ruby.png"
   type         = "string"
-  default      = "3.4.6"
+  default      = "4.0.1"
   mutable      = true
   order        = 3
   option {
-    name  = "3.4.6"
-    value = "3.4.6"
+    name  = "4.0.1"
+    value = "4.0.1"
   }
   option {
-    name  = "3.3.9"
-    value = "3.3.9"
+    name  = "3.4.9"
+    value = "3.4.9"
   }
   option {
-    name  = "3.2.9"
-    value = "3.2.9"
+    name  = "3.3.10"
+    value = "3.3.10"
+  }
+  option {
+    name  = "3.2.10"
+    value = "3.2.10"
   }
   option {
     name  = "3.1.7"

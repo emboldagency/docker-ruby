@@ -11,7 +11,7 @@ prompt_var() {
 }
 
 DEFAULT_UBUNTU_VERSION=24.04
-DEFAULT_RUBY_VERSION=3.4.6
+DEFAULT_RUBY_VERSION=4.0.1
 DEFAULT_TEMPLATE_VERSION=$(date +%Y.%m.%d.0)
 
 # Default values (match the examples shown to allow Continue with Enter)

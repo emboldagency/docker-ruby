@@ -2,8 +2,9 @@ name: Build and Deploy Ruby
 
 on:
   push:
+    branches: # Added this to keep cache warm on main commits
+      - main
     tags:
-      # Match a tag with the format v2026.02.20.0
       - "v[0-9]+.[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
@@ -12,104 +13,79 @@ on:
         required: false
         default: ""
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  LATEST_UBUNTU: "24.04"
+  LATEST_RUBY: "4.0.1"
+
 jobs:
   initialization:
     runs-on: ubuntu-latest
     outputs:
-      skip-build-and-push-docker: ${{ steps.set-skip-build-and-push-docker.outputs.skip }}
+      skip-build: ${{ steps.check.outputs.skip }}
     steps:
-      - name: Determine Jobs to Skip
-        id: set-skip-build-and-push-docker
+      - id: check
         run: |
           if [[ "${{ github.event.inputs['skip-jobs'] }}" == *"build-and-push-docker"* ]]; then
-            echo "skip=true" >> $GITHUB_ENV
+            echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "skip=false" >> $GITHUB_ENV
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
   build-and-push-docker:
-    if: ${{ !contains(github.event.inputs['skip-jobs'], 'build-and-push-docker') }}
-    runs-on: ubuntu-latest
     needs: initialization
+    if: needs.initialization.outputs.skip-build != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
+      fail-fast: false # Don't stop all jobs if one Ruby version fails
       matrix:
-        ruby_version:
-          - 3.4.6
-          - 3.3.9
-          - 3.2.9
-          - 3.1.7
-          - 3.0.7
-          - 2.7.8
-        ubuntu_version:
-          - 24.04
-          - 22.04
+        ruby_version: ["4.0.1", "3.4.9", "3.3.10", "3.2.10", "3.1.7", "3.0.7", "2.7.8"]
+        ubuntu_version: ["24.04"]
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          buildkitd-flags: --debug
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Ruby Image metadata
-        id: meta-ruby
+      - name: Extract metadata
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/emboldagency/docker-ruby
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=match,pattern=v(.*),group=1,prefix=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-
             type=raw,value=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
 
-      - name: Extract Devcontainer Image metadata
-        id: meta-devcontainer
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/emboldagency/docker-devcontainer
-          tags: |
-            type=match,pattern=v(.*),group=1,prefix=ruby${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-
-            type=raw,value=ruby${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: ./build
-          file: ./build/Dockerfile
           push: true
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-ruby-build-cache:cache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-ruby-build-cache:cache,mode=max
-          tags: ${{ steps.meta-ruby.outputs.tags }}
-          labels: ${{ steps.meta-ruby.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             RUBY_VERSION=${{ matrix.ruby_version }}
             UBUNTU_VERSION=${{ matrix.ubuntu_version }}
-          cache: true
-
-      - name: Build and Push Devcontainer Image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./build
-          file: ./build/devcontainer/Dockerfile
-          push: true
-          tags: ${{ steps.meta-devcontainer.outputs.tags }}
-          labels: ${{ steps.meta-devcontainer.outputs.labels }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/emboldagency/docker-ruby:${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-devcontainer-build-cache:cache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USER }}/docker-devcontainer-build-cache:cache,mode=max
-          cache: true
+          cache-from: type=gha,scope=ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
+          cache-to: type=gha,mode=max,scope=ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
 
   update-coder-template:
     needs: [initialization, build-and-push-docker]
     # Only run if not cancelled AND triggered by a tag AND not explicitly skipped AND (build was skipped OR build succeeded)
-    if: ${{ !cancelled() && github.ref_type == 'tag' && !contains(github.event.inputs['skip-jobs'], 'update-coder-template') && (needs.initialization.outputs.skip-build-and-push-docker == 'true' || needs.build-and-push-docker.result == 'success') }}
+    if: ${{ !cancelled() && github.ref_type == 'tag' && !contains(github.event.inputs['skip-jobs'], 'update-coder-template') && (needs.initialization.outputs.skip-build == 'true' || needs.build-and-push-docker.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository

@@ -1,13 +1,13 @@
 ---
 name: Ruby on Ubuntu
-description: Ruby on Ubuntu with Postges, Mailpit, and Adminer
+description: Ruby on Ubuntu with Postges
 tags: [local, docker]
 icon: /icon/docker.png
 ---
 
 # Ruby
 
-![Semantic Versioning](https://embold.net/api/github/badge/semver.php?repo=docker-ruby) [![build-and-deploy.yml](https://embold.net/api/github/badge/workflow-status.php?repo=docker-ruby&workflow=build-and-deploy.yml)](https://github.com/emboldagency/docker-ruby/actions/workflows/build-and-deploy.yml)
+[![Calendar Semantic Versioning](https://img.shields.io/github/v/release/emboldagency/docker-ruby?label=calendar%20semver)](https://github.com/emboldagency/docker-ruby/releases)
 
 # Build Process
 
@@ -20,7 +20,7 @@ Coder host (or pull via Portainer) or create a new tag that Coder will fetch.
 
 GitHub Actions is configured to:
 
-- automatically build and push the base images to DockerHub
+- automatically build and push the base images to GHCR
 - push the updated templates to Coder when a new version tag is created on GitHub
 
 The jobs are defined in [build-and-deploy.yml](.github/workflows/build-and-deploy.yml)
@@ -42,53 +42,37 @@ gh workflow run build-and-deploy.yml --ref $REFERENCE --field skip-jobs=$SKIP_JO
 
 ## Manual Builds
 
-### Build Script
+### Using the Build Script (Recommended)
 
-Use the included `build_image.sh` script to interactively build and optionally push the base image. The script provides sensible defaults so you can press Enter to continue.
+For local development and testing, use the included helper script. It prompts for the Ubuntu & Ruby versions and an optional tag suffix, then runs the build with the correct arguments.
 
 ```bash
 ./build_image.sh
 ```
 
-### Docker commands
+### Using Docker CLI
 
-Export the variables:
+Set the base image version and Ruby version
 
 ```bash
-# Set the base image version
 export UBUNTU_VERSION=24.04
-
-# Set the ruby version
 export RUBY_VERSION=3.4.6
-
-# Set the template version used by our CI and release tags
-export TEMPLATE_VERSION=1.4.0
 ```
 
-Build the image:
-```bash
-docker buildx build -t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
-	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
- --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
-````
-
-If you need full BuildKit output (useful for debugging) you have two options:
-
-1. Add `--progress=plain` to stream the BuildKit output to your terminal:
-```bash
-docker buildx build --progress=plain \
-	-t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
-	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
-	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
-````
-
-2. Or set `DOCKER_BUILDKIT=1` and pipe to `tee` to capture a permanent log file:
+Set the template version used by our CI and release tags.
 
 ```bash
-DOCKER_BUILDKIT=1 docker buildx build --progress=plain \
-	-t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
-	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
-	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load 2>&1 | tee build.log
+export TEMPLATE_VERSION=2026.03.12.0
+```
+
+Build the image
+
+```bash
+docker buildx build \
+  --build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
+  --build-arg RUBY_VERSION=${RUBY_VERSION}
+  -t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-${TEMPLATE_VERSION} \
+  ./build --load
 ```
 
 If you are pushing to GHCR, authenticate first.
@@ -105,26 +89,8 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 Push the image to the registry
 
 ```bash
-docker push ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION}
+docker push ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-${TEMPLATE_VERSION}
 ```
-
-<!-- ## Companion Docker Images
-
-This template uses custom Docker images for supporting services:
-
-### Adminer (Database Management)
-
-- **Repository**: [emboldagency/adminer-coder](https://github.com/emboldagency/adminer-coder)
-- **Docker Hub**: `ghcr.io/emboldagency/docker-adminer-coder:latest`
-- **Features**: Coder-compatible, auto-login plugin, multi-database support
-
-### Mailpit (Email Testing)
-
-- **Repository**: [emboldagency/mailpit-coder](https://github.com/emboldagency/mailpit-coder)
-- **Docker Hub**: `ghcr.io/emboldagency/docker-mailpit-coder:latest`
-- **Features**: Coder-compatible, web UI on port 18025, SMTP on port 1025
-
-These images are pre-built and available on Docker Hub. The template pulls them automatically rather than building locally for faster workspace startup. -->
 
 ## Notes on build stages and slimming
 
@@ -144,4 +110,4 @@ Commit and push any changes to git, then use the coder cli to push the template 
 coder templates push ruby --name ${TEMPLATE_VERSION}
 ```
 
-Note: During testing, you can set `--activate=false` to push the template without marking it as the latest version, so new workspaces won't be prompted to update.
+Note: During testing, you can set `--activate=false` to push the template without marking it as the latest version, so new workspaces won't be prompted to update. Coder does not allow deleting a template version, so once the template name is pushed, you'll need to use a new name for subsequent updates.

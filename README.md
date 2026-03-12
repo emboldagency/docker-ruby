@@ -1,13 +1,13 @@
 ---
 name: Ruby on Ubuntu
-description: Ruby on Ubuntu with Postges, Mailpit, and Adminer
+description: Ruby on Ubuntu with Postges
 tags: [local, docker]
 icon: /icon/docker.png
 ---
 
 # Ruby
 
-![Semantic Versioning](https://embold.net/api/github/badge/semver.php?repo=docker-ruby) [![build-and-deploy.yml](https://embold.net/api/github/badge/workflow-status.php?repo=docker-ruby&workflow=build-and-deploy.yml)](https://github.com/emboldagency/docker-ruby/actions/workflows/build-and-deploy.yml)
+[![Semantic Versioning](https://img.shields.io/github/v/release/emboldagency/docker-ruby?label=semver)](https://github.com/emboldagency/docker-ruby/releases)
 
 # Build Process
 
@@ -66,21 +66,23 @@ export TEMPLATE_VERSION=1.4.0
 ```
 
 Build the image:
+
 ```bash
 docker buildx build -t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
  --build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
-````
+```
 
 If you need full BuildKit output (useful for debugging) you have two options:
 
 1. Add `--progress=plain` to stream the BuildKit output to your terminal:
+
 ```bash
 docker buildx build --progress=plain \
 	-t ghcr.io/emboldagency/docker-ruby:${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}-release${TEMPLATE_VERSION} \
 	--build-arg UBUNTU_VERSION=${UBUNTU_VERSION} \
 	--build-arg RUBY_VERSION=${RUBY_VERSION} ./build --load
-````
+```
 
 2. Or set `DOCKER_BUILDKIT=1` and pipe to `tee` to capture a permanent log file:
 

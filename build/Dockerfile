@@ -1,10 +1,16 @@
+ARG UBUNTU_VERSION=24.04
+ARG RUBY_VERSION=3.4.6
+# BASE_IMAGE ARG allows overriding to local tags during development
+ARG BASE_IMAGE=ghcr.io/emboldagency/docker-base:ubuntu${UBUNTU_VERSION}
+
 # -----------------------------------------------------------------------------
 # Ruby Builder (Compiles source)
 # -----------------------------------------------------------------------------
-ARG UBUNTU_VERSION=24.04
-FROM ghcr.io/emboldagency/docker-base:ubuntu${UBUNTU_VERSION} AS ruby_builder
+FROM ${BASE_IMAGE} AS ruby_builder
 
-ARG RUBY_VERSION=3.4.6
+ARG UBUNTU_VERSION
+ARG RUBY_VERSION
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 USER root
@@ -44,12 +50,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libwebp-dev \
     # PostgreSQL client library (for pg gem)
     libpq-dev \
-    # Used for cloning Ruby source/repos
-    git \
-    # Used for fetching ruby-build assets
-    curl \
-    # Ensures secure HTTPS connections during build
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Compile Ruby
@@ -70,19 +70,18 @@ ENV PATH=$GEM_HOME/bin:/usr/local/bin:$PATH
 
 RUN mkdir -p $GEM_HOME \
     && echo 'gem: --no-document' > /etc/gemrc \
-    && gem update --system \
-    && gem install bundler rails specific_install colorls rake \
+    && gem install bundler rails rake specific_install \
     && gem specific_install https://github.com/emboldagency/pulsar-embold.git \
     # Ruby 2.7 compatibility: install specific gem versions
     && if [ "${RUBY_VERSION%.*}" = "2.7" ]; then \
-      gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative; \
+    gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative; \
     fi \
     && rm -rf "$GEM_HOME/cache"/*
 
 # -----------------------------------------------------------------------------
 # Final Image
 # -----------------------------------------------------------------------------
-FROM ghcr.io/emboldagency/docker-base:ubuntu${UBUNTU_VERSION} AS final
+FROM ${BASE_IMAGE} AS final
 
 ARG RUBY_VERSION
 
@@ -93,8 +92,10 @@ ENV LANG=en_US.utf8 \
     DEBIAN_FRONTEND=noninteractive \
     BUNDLE_APP_CONFIG=/home/embold/.gem/ruby/${RUBY_VERSION} \
     GEM_HOME=/home/embold/.gem/ruby/${RUBY_VERSION} \
+    GEM_PATH=/home/embold/.gem/ruby/${RUBY_VERSION}:/coder/gems/ruby/${RUBY_VERSION} \
     # Prepend user gems, then system gems (from /coder/gems)
-    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/coder/gems/ruby/${RUBY_VERSION}/bin:/usr/local/bin:$PATH
+    PATH=/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/coder/gems/ruby/${RUBY_VERSION}/bin:/usr/local/bin:$PATH \
+    PULSAR_CONF_REPO="git@github.com:emboldagency/pulsar.git"
 
 USER root
 
@@ -140,30 +141,6 @@ COPY --from=ruby_builder /usr/local /usr/local
 # Copy Gems from Gem Builder
 COPY --chown=embold:embold --from=ruby_gems /coder/gems/ /coder/gems/
 
-# Ensure bundler binstubs match the current Ruby version (fixes shebangs if version changes)
-RUN if command -v ruby >/dev/null 2>&1 && [ -f "/coder/gems/ruby/${RUBY_VERSION}/bin/bundle" ]; then \
-      current_ruby=$(ruby -e 'puts RUBY_VERSION'); \
-      bundle_shebang=$(head -n1 "/coder/gems/ruby/${RUBY_VERSION}/bin/bundle" 2>/dev/null || echo ""); \
-      if [[ "$bundle_shebang" =~ ruby([0-9]+\.[0-9]+) ]]; then \
-        shebang_version="${BASH_REMATCH[1]}"; \
-        if [ "$shebang_version" != "${current_ruby%.*}" ]; then \
-          echo "Ruby shebang mismatch detected; reinstalling bundler with correct version"; \
-          gem install bundler --conservative --force; \
-        fi; \
-      fi; \
-    fi
-
-# Setup Profile
-RUN printf 'export GEM_HOME=%s\nexport GEM_PATH=%s\nexport PATH=%s\n' \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}" \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}:/coder/gems/ruby/${RUBY_VERSION}" \
-    "/home/embold/.gem/ruby/${RUBY_VERSION}/bin:/coder/gems/ruby/${RUBY_VERSION}/bin:/usr/local/bin:\$PATH" > /etc/profile.d/embold-gems.sh \
-    && chmod 0755 /etc/profile.d/embold-gems.sh
-
 USER embold
-
-# We assume entrypoint.sh exists in the base image or is mounted
-# If it's specific to this image, COPY it here.
-# COPY entrypoint.sh /usr/bin/entrypoint.sh 
 
 CMD ["/bin/zsh"]

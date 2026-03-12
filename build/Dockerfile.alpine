@@ -2,21 +2,21 @@ ARG ALPINE_VERSION=3.20
 FROM ghcr.io/emboldagency/docker-base:alpine${ALPINE_VERSION} AS gem-builder
 
 ENV GEM_HOME=/coder/gems \
-	PATH=/coder/gems/bin:$PATH \
-	BUNDLE_DISABLE_SHARED_GEMS=1 \
-	BUNDLE_SILENCE_ROOT_WARNING=1 \
-	PULSAR_CONF_REPO="git@github.com:emboldagency/pulsar.git"
+    PATH=/coder/gems/bin:$PATH \
+    BUNDLE_DISABLE_SHARED_GEMS=1 \
+    BUNDLE_SILENCE_ROOT_WARNING=1 \
+    PULSAR_CONF_REPO="git@github.com:emboldagency/pulsar.git"
 
 USER root
 
 # Install compilers and headers needed to build gems
 RUN apk add --no-cache \
-	ruby \
-	ruby-dev \
-	ruby-bundler \
-	build-base \
-	git \
-	libffi-dev
+    ruby \
+    ruby-dev \
+    ruby-bundler \
+    build-base \
+    git \
+    libffi-dev
 
 RUN mkdir -p /coder/gems \
     && chown -R embold:embold /coder/gems
@@ -38,7 +38,7 @@ USER root
 
 # Install Runtime Dependencies
 RUN apk update \
-	&& apk add --no-cache \
+    && apk add --no-cache \
     # Compilers / Headers for native extensions
     build-base \
     # Standard headers

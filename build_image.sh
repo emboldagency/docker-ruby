@@ -12,7 +12,7 @@ prompt_var() {
 
 DEFAULT_UBUNTU_VERSION=24.04
 DEFAULT_RUBY_VERSION=3.4.6
-DEFAULT_TEMPLATE_VERSION=2026.02.25.0
+DEFAULT_TEMPLATE_VERSION=$(date +%Y.%m.%d.0)
 
 # Default values (match the examples shown to allow Continue with Enter)
 : ${UBUNTU_VERSION:=$DEFAULT_UBUNTU_VERSION}
@@ -71,17 +71,14 @@ fi
 readonly REGISTRY_HOST="ghcr.io"
 readonly REGISTRY_USER="emboldagency"
 readonly IMAGE_NAME="docker-ruby"
-readonly DEV_IMAGE_NAME="devcontainer"
 
 # Define version suffixes
 readonly VERSION_SUFFIX="${RUBY_VERSION}-ubuntu${UBUNTU_VERSION}"
-readonly RELEASE_SUFFIX="${VERSION_SUFFIX}-release${TEMPLATE_VERSION}"
+readonly RELEASE_SUFFIX="${VERSION_SUFFIX}-${TEMPLATE_VERSION}"
 
 # Define final, full image tags
 readonly GENERAL_TAG="${REGISTRY_HOST}/${REGISTRY_USER}/${IMAGE_NAME}:${VERSION_SUFFIX}"
 readonly RELEASE_TAG="${REGISTRY_HOST}/${REGISTRY_USER}/${IMAGE_NAME}:${RELEASE_SUFFIX}"
-readonly DEV_TAG="${REGISTRY_HOST}/${REGISTRY_USER}/${DEV_IMAGE_NAME}:${IMAGE_NAME}${RELEASE_SUFFIX}"
-readonly DEV_GENERAL_TAG="${REGISTRY_HOST}/${REGISTRY_USER}/${DEV_IMAGE_NAME}:${IMAGE_NAME}-${VERSION_SUFFIX}"
 
 # Build the image
 DOCKER_BUILDKIT=1 docker build -t "$RELEASE_TAG" \
@@ -96,7 +93,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-RELEASE_MINOR_TAG="${REGISTRY_HOST}/${REGISTRY_USER}/${IMAGE_NAME}:${VERSION_SUFFIX}-release${TEMPLATE_VERSION%.*}"
+RELEASE_MINOR_TAG="${REGISTRY_HOST}/${REGISTRY_USER}/${IMAGE_NAME}:${VERSION_SUFFIX}-${TEMPLATE_VERSION%.*}"
 
 should_tag_minor=false
 should_tag_general=false
@@ -145,7 +142,7 @@ if [ -z "$remote_tags" ]; then
   should_tag_general=false
   should_tag_minor=false
 else
-  prefix="${VERSION_SUFFIX}-release"
+  prefix="${VERSION_SUFFIX}-"
   release_versions=()
   while read -r t; do
     case "$t" in
@@ -244,28 +241,4 @@ if [[ "$push_answer" =~ ^[Yy]$ ]]; then
     docker push "$GENERAL_TAG"
   fi
   echo "All tags pushed successfully!"
-fi
-
-# Build/push a matching devcontainer image derived from this ruby image
-echo_highlight "Building devcontainer image ${DEV_TAG} from ${RELEASE_TAG}"
-# Build using local devcontainer Dockerfile under build/devcontainer
-DOCKER_BUILDKIT=1 docker build -t "${DEV_TAG}" --build-arg BASE_IMAGE="${RELEASE_TAG}" -f ./build/devcontainer/Dockerfile ./build
-if [[ $? -ne 0 ]]; then
-  echo_error "Devcontainer image build failed"
-else
-  # Add generic tag for easier reference (without -release suffix)
-  docker tag "${DEV_TAG}" "${DEV_GENERAL_TAG}"
-  echo "Devcontainer image built with tags:"
-  echo "  $DEV_TAG"
-  echo "  $DEV_GENERAL_TAG"
-  echo
-  echo "To push all devcontainer tags, run:"
-  echo_highlight "  docker push $DEV_TAG"
-  echo_highlight "  docker push $DEV_GENERAL_TAG"
-  read -rp "Do you want to push both devcontainer tags now? [y/N]: " push_dev
-  if [[ "$push_dev" =~ ^[Yy]$ ]]; then
-    docker push "${DEV_TAG}"
-    docker push "${DEV_GENERAL_TAG}"
-    echo "All devcontainer tags pushed successfully!"
-  fi
 fi

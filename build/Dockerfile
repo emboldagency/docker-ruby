@@ -70,11 +70,12 @@ ENV PATH=$GEM_HOME/bin:/usr/local/bin:$PATH
 
 RUN mkdir -p $GEM_HOME \
     && echo 'gem: --no-document' > /etc/gemrc \
-    && gem install bundler rails rake specific_install \
-    && gem specific_install https://github.com/emboldagency/pulsar-embold.git \
-    # Ruby 2.7 compatibility: install specific gem versions
+    # Ruby 2.7: pin gems whose latest versions dropped 2.7 support
     && if [ "${RUBY_VERSION%.*}" = "2.7" ]; then \
-    gem install public_suffix:5.1.1 dotenv:2.8.1 --conservative; \
+    gem install bundler:2.4.22 public_suffix:5.1.1 dotenv:2.8.1 rake pulsar; \
+    else \
+    gem install bundler rails rake specific_install; \
+    gem specific_install https://github.com/emboldagency/pulsar-embold.git; \
     fi \
     && rm -rf "$GEM_HOME/cache"/*
 

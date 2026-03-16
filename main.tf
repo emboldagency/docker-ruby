@@ -153,7 +153,7 @@ locals {
   pulsar_magic_template = data.coder_parameter.pulsar_magic_template.value
   resource_name_base    = "coder-${local.user_username}-${local.workspace_name}"
   ruby_version          = data.coder_parameter.ruby_version.value
-  template_version      = "2026.03.12.1"
+  template_version      = "2026.03.16.1"
   timezone              = coalesce(module.timezone.timezone, "UTC")
   ubuntu_version        = data.coder_parameter.ubuntu_version.value
   user_email            = data.coder_workspace_owner.me.email

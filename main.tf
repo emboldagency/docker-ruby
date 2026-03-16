@@ -126,17 +126,6 @@ data "coder_parameter" "ubuntu_version" {
   }
 }
 
-data "coder_parameter" "rails_master_key" {
-  name         = "rails_master_key"
-  display_name = "Rails Master Key"
-  description  = "Enter the rails master key to use for encrypted credentials. This will set the RAILS_MASTER_KEY environment variable."
-  type         = "string"
-  icon         = "https://api.embold.net/icons/?name=fas-key.svg&color=009dff"
-  default      = ""
-  mutable      = true
-  order        = 6
-}
-
 # ------------------------------------------------------------------------------
 # Context Data & Locals
 # ------------------------------------------------------------------------------
@@ -162,7 +151,6 @@ locals {
   postgres_version      = data.coder_parameter.postgres_version.value
   pulsar_app_name       = data.coder_parameter.pulsar_app_name.value
   pulsar_magic_template = data.coder_parameter.pulsar_magic_template.value
-  rails_master_key      = trimspace(data.coder_parameter.rails_master_key.value) != "" ? "RAILS_MASTER_KEY=${trimspace(data.coder_parameter.rails_master_key.value)}" : ""
   resource_name_base    = "coder-${local.user_username}-${local.workspace_name}"
   ruby_version          = data.coder_parameter.ruby_version.value
   template_version      = "2026.03.12.1"
@@ -419,7 +407,6 @@ resource "docker_container" "workspace" {
     "PGPASSWORD=embold",
     "PULSAR_APP_NAME=${local.pulsar_app_name}",
     "RUBY_VERSION=${local.ruby_version}",
-    "${local.rails_master_key}",
     "TZ=${local.timezone}"
   ])
 

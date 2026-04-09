@@ -62,7 +62,7 @@ export RUBY_VERSION=3.4.6
 Set the template version used by our CI and release tags.
 
 ```bash
-export TEMPLATE_VERSION=2026.03.12.0
+export TEMPLATE_VERSION=2099.01.01.0
 ```
 
 Build the image
@@ -107,7 +107,7 @@ To manually run the job without pushing a release tag, or to skip the build step
 Commit and push any changes to git, then use the coder cli to push the template up to Coder.
 
 ```bash
-coder templates push ruby --name ${TEMPLATE_VERSION}
+coder templates push ruby --name "v$(cat VERSION)"
 ```
 
 Note: During testing, you can set `--activate=false` to push the template without marking it as the latest version, so new workspaces won't be prompted to update. Coder does not allow deleting a template version, so once the template name is pushed, you'll need to use a new name for subsequent updates.

@@ -557,6 +557,58 @@ module "mailpit" {
   proxy_mappings      = ["18025:mailpit:8025"]
 }
 
+module "opencode" {
+  source   = "registry.coder.com/coder-labs/opencode/coder"
+  version  = "0.1.2"
+  agent_id = coder_agent.main.id
+  workdir  = "/home/embold/code/${local.app}"
+
+  # Web UI in sidebar + CLI access in terminal
+  cli_app = true
+
+  # No cloud auth needed -- Ollama has no authentication
+  auth_json = ""
+
+  # The module hardcodes /home/coder/.opencode/bin in PATH but our home is
+  # /home/embold. Symlink the installed binary to a standard PATH location.
+  post_install_script = <<-EOT
+    if [ -f "$HOME/.opencode/bin/opencode" ] && ! command -v opencode > /dev/null 2>&1; then
+      sudo ln -sf "$HOME/.opencode/bin/opencode" /usr/local/bin/opencode
+    fi
+  EOT
+
+  config_json = jsonencode({
+    "$schema" = "https://opencode.ai/config.json"
+    provider = {
+      ollama = {
+        npm  = "@ai-sdk/openai-compatible"
+        name = "Ollama"
+        options = {
+          baseURL = "https://ollama.embold.dev/v1"
+        }
+        models = {
+          "qwen3-coder:30b" = {
+            name = "Qwen3 Coder 30B (MoE, default)"
+          }
+          "qwen2.5-coder:14b" = {
+            name = "Qwen 2.5 Coder 14B (compact)"
+          }
+          "deepseek-coder-v2:16b" = {
+            name = "DeepSeek Coder v2 16B (MoE, alt)"
+          }
+          "codestral:22b" = {
+            name = "Codestral 22B (Mistral)"
+          }
+          "gemma4:26b" = {
+            name = "Gemma 4 26B (general)"
+          }
+        }
+      }
+    }
+    model = "ollama/qwen3-coder:30b"
+  })
+}
+
 module "ssh_setup" {
   source   = "git::https://github.com/emboldagency/coder-registry.git//modules/ssh-setup?ref=v2026.03.11.0"
   count    = data.coder_workspace.me.start_count

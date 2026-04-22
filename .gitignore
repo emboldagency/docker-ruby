@@ -35,3 +35,6 @@ terraform.rc
 
 # Editor preferences
 .vscode
+
+# Ignore workspace settings, which may contain user-specific configurations
+.claude

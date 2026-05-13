@@ -112,9 +112,15 @@ data "coder_parameter" "ubuntu_version" {
     name  = "24.04 LTS (Noble)"
     value = "24.04"
   }
-  option {
-    name  = "26.04 LTS (Resolute)"
-    value = "26.04"
+  # Hide 26.04 when Ruby 3.0.x is selected. Ruby 3.0 predates Ubuntu 26.04's
+  # toolchain (GCC 15, OpenSSL 3.5) and ruby-build doesn't auto-patch EOL'd
+  # Rubies for new compilers, so this combination has no published image.
+  dynamic "option" {
+    for_each = startswith(data.coder_parameter.ruby_version.value, "3.0.") ? [] : [1]
+    content {
+      name  = "26.04 LTS (Resolute)"
+      value = "26.04"
+    }
   }
 }
 

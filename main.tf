@@ -83,8 +83,8 @@ data "coder_parameter" "ruby_version" {
     value = "3.3.1"
   }
   option {
-    name  = "3.0.2"
-    value = "3.0.2"
+    name  = "3.0.7"
+    value = "3.0.7"
   }
 }
 

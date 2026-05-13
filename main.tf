@@ -579,6 +579,14 @@ module "timezone" {
   parameter_order = 7 # 1 parameter
 }
 
+module "vault" {
+  source     = "registry.coder.com/coder/vault-github/coder"
+  version    = "1.1.2"
+  count      = data.coder_workspace.me.start_count
+  agent_id   = coder_agent.main.id
+  vault_addr = "https://vault.embold.dev"
+}
+
 # DEPRECATED: Keep this parameter for backward compatibility with workspaces
 # created before the dotfiles module was introduced. Existing workspaces have a
 # stored value under the name "dotfiles URL" — removing it breaks upgrades.

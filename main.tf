@@ -583,6 +583,8 @@ module "vault" {
   count      = data.coder_workspace.me.start_count
   agent_id   = coder_agent.main.id
   vault_addr = "https://vault.embold.dev"
+  # Pin: before bumping, verify binaries exist at https://releases.hashicorp.com/vault/<version>/.
+  vault_cli_version = "2.0.0"
 }
 
 # DEPRECATED: Keep this parameter for backward compatibility with workspaces

@@ -539,13 +539,6 @@ module "jetbrains_gateway" {
   default        = "RM"
 }
 
-module "antigravity" {
-  count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/antigravity/coder"
-  version  = "1.0.0"
-  agent_id = coder_agent.main.id
-}
-
 module "mailpit" {
   source              = "git::https://github.com/emboldagency/coder-registry.git//modules/mailpit?ref=v2026.03.11.0"
   count               = data.coder_workspace.me.start_count

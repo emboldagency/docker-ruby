@@ -132,6 +132,12 @@ data "coder_provisioner" "me" {}
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 
+# Gates workspace creation on GitHub external-auth being authorized so that
+# `coder external-auth access-token github` works at runtime. We intentionally
+# do NOT inject .access_token into the agent/container env: it's a GitHub App
+# user-to-server token (ghu_…) with a finite TTL, so a build-time snapshot goes
+# stale while the workspace stays up. Tools fetch a fresh token at runtime
+# instead (git via GIT_ASKPASS/coder gitssh; gh/vault via `coder external-auth`).
 data "coder_external_auth" "github" {
   id = "github"
 }
@@ -145,7 +151,6 @@ locals {
   db_version            = local.postgres_version
   dev_url               = "https://webapp--${local.workspace_name}--${local.user_username}.embold.dev"
   dotfiles_uri          = try(length(data.coder_parameter.dotfiles_url.value) > 0, false) ? data.coder_parameter.dotfiles_url.value : try(module.dotfiles[0].dotfiles_uri, "")
-  github_token          = data.coder_external_auth.github.access_token
   postgres_version      = data.coder_parameter.postgres_version.value
   pulsar_app_name       = data.coder_parameter.pulsar_app_name.value
   pulsar_magic_template = data.coder_parameter.pulsar_magic_template.value
@@ -400,7 +405,7 @@ resource "docker_container" "workspace" {
     "CODER_AGENT_DEVCONTAINERS_ENABLE=false",
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
     "DATABASE_URL=postgresql://embold:embold@postgres:5432/${local.db_name}",
-    "GITHUB_TOKEN=${local.github_token}",
+    # No static GITHUB_TOKEN here on purpose — see data.coder_external_auth.github.
     "HOSTNAME=${local.app}",
     "PGHOST=postgres",
     "PGDATABASE=${local.db_name}",

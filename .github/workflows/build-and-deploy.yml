@@ -84,8 +84,8 @@ jobs:
           build-args: |
             RUBY_VERSION=${{ matrix.ruby_version }}
             UBUNTU_VERSION=${{ matrix.ubuntu_version }}
-          cache-from: type=gha,scope=ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
-          cache-to: type=gha,mode=max,scope=ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
+          cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
 
   update-coder-template:
     needs: [initialization, build-and-push-docker]

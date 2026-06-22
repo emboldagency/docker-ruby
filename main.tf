@@ -40,7 +40,7 @@ variable "GHP_REGISTRY_PASS" {
 data "coder_parameter" "pulsar_app_name" {
   name        = "Pulsar App Name"
   description = "What is the Pulsar app name? If this is blank, the workspace name will be used."
-  icon        = "https://api.embold.net/icons/?name=title.svg&color=009dff"
+  icon        = "https://api.embold.net/icons/title.svg"
   type        = "string"
   default     = ""
   mutable     = true
@@ -51,7 +51,7 @@ data "coder_parameter" "pulsar_magic_template" {
   name        = "Pulsar Magic Template?"
   description = "Should we use the Pulsar magic template to dynamically build the Pulsar configuration?"
   type        = "bool"
-  icon        = "https://api.embold.net/icons/?name=fas-magic-wand.svg&color=009dff"
+  icon        = "https://api.embold.net/icons/fas-magic-wand.svg"
   default     = false
   mutable     = true
   order       = 2
@@ -238,7 +238,7 @@ resource "coder_app" "web_app" {
   agent_id     = coder_agent.main.id
   display_name = "Web App"
   slug         = "webapp"
-  icon         = "https://api.embold.net/icons/?name=fas-globe.svg&color=009dff"
+  icon         = "https://api.embold.net/icons/fas-globe.svg"
   url          = "http://localhost:3000"
   subdomain    = true
   share        = "public"

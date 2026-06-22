@@ -67,9 +67,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Don't let every matrix job race to claim `latest`; tag it only on the newest default combo.
+          flavor: |
+            latest=false
           tags: |
             type=match,pattern=v(.*),group=1,prefix=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-
             type=raw,value=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && matrix.ruby_version == env.LATEST_RUBY && matrix.ubuntu_version == env.LATEST_UBUNTU }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

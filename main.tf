@@ -227,6 +227,17 @@ resource "coder_agent" "main" {
     order        = 4
   }
 
+  # On-disk size of the Postgres volume (mounted read-only at /mnt/postgres-data).
+  # Differs from "Database Size" (logical) by WAL, indexes overhead, and slack.
+  metadata {
+    display_name = "Database Disk Usage"
+    key          = "postgres_disk_usage"
+    script       = "du -BG --apparent-size /mnt/postgres-data 2>/dev/null | tail -1 | awk '{print $1}'"
+    interval     = 300
+    timeout      = 30
+    order        = 5
+  }
+
   startup_script = <<-EOT
     set -e
     /bin/bash /coder/scripts/configure
@@ -424,6 +435,14 @@ resource "docker_container" "workspace" {
     container_path = "/home/embold"
     volume_name    = docker_volume.home_volume.name
     read_only      = false
+  }
+
+  # Read-only so the agent can `du` the DB volume for the disk-usage metric.
+  # du only stats files, so RO access to the live datadir is safe.
+  volumes {
+    container_path = "/mnt/postgres-data"
+    volume_name    = docker_volume.postgres_volume.name
+    read_only      = true
   }
 
   # Add labels in Docker to keep track of orphan resources.

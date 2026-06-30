@@ -189,6 +189,9 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_NAME     = local.user_full_name
     GIT_COMMITTER_EMAIL    = local.user_email
     PULSAR_MAGIC_TEMPLATE  = local.pulsar_magic_template
+    # Point the Playwright MCP at the browser sidecar instead of installing a
+    # local Chromium. Empty when the workspace is stopped (start_count = 0).
+    PLAYWRIGHT_MCP_CDP_ENDPOINT = try(module.playwright[0].cdp_endpoint, "")
   }
 
   metadata {
@@ -577,6 +580,16 @@ module "mailpit" {
   docker_network_name = docker_network.workspace[0].name
   resource_name_base  = local.resource_name_base
   proxy_mappings      = ["18025:mailpit:8025"]
+}
+
+module "playwright" {
+  # NOTE: requires a coder-registry release that INCLUDES modules/playwright.
+  # Bump this ref to the tag you cut for it (and keep the env wiring in coder_agent.main).
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/playwright?ref=v2026.06.30.0"
+  count               = data.coder_workspace.me.start_count
+  agent_id            = coder_agent.main.id
+  docker_network_name = docker_network.workspace[0].name
+  resource_name_base  = local.resource_name_base
 }
 
 module "ssh_setup" {

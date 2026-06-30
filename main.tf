@@ -397,6 +397,10 @@ resource "docker_container" "workspace" {
   hostname     = local.workspace_name
   entrypoint   = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   network_mode = docker_network.workspace[count.index].name
+  # Run a real init (Docker's tini) as PID 1 so zombie reaping works; without it,
+  # service restarts fail on first try. Baking tini into the image wouldn't help —
+  # the entrypoint above overrides any image ENTRYPOINT.
+  init = true
 
   env = compact([
     "APP=${local.app}",

@@ -33,6 +33,13 @@ variable "GHP_REGISTRY_PASS" {
   sensitive = true
 }
 
+# Token for the shared browserless service (infrastructure-docs/stacks/browserless).
+# Must match BROWSERLESS_TOKEN in that stack. Supply via the gitignored terraform.tfvars.
+variable "playwright_token" {
+  type      = string
+  sensitive = true
+}
+
 # ------------------------------------------------------------------------------
 # Coder Parameters
 # ------------------------------------------------------------------------------
@@ -189,9 +196,9 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_NAME     = local.user_full_name
     GIT_COMMITTER_EMAIL    = local.user_email
     PULSAR_MAGIC_TEMPLATE  = local.pulsar_magic_template
-    # Point the Playwright MCP at the browser sidecar instead of installing a
-    # local Chromium. Empty when the workspace is stopped (start_count = 0).
-    PLAYWRIGHT_MCP_CDP_ENDPOINT = try(module.playwright[0].cdp_endpoint, "")
+    # Point the Playwright MCP at the shared browserless service (on coder-shared)
+    # instead of installing a local Chromium. token must match the browserless stack.
+    PLAYWRIGHT_MCP_CDP_ENDPOINT = "ws://browserless:3000?token=${var.playwright_token}"
   }
 
   metadata {
@@ -405,12 +412,21 @@ resource "docker_image" "ruby" {
 }
 
 resource "docker_container" "workspace" {
-  count        = data.coder_workspace.me.start_count
-  name         = local.resource_name_base
-  image        = docker_image.ruby.name
-  hostname     = local.workspace_name
-  entrypoint   = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
-  network_mode = docker_network.workspace[count.index].name
+  count      = data.coder_workspace.me.start_count
+  name       = local.resource_name_base
+  image      = docker_image.ruby.name
+  hostname   = local.workspace_name
+  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
+  # Multi-home: the per-workspace network (postgres/mailpit sidecars) plus the shared
+  # `coder-shared` network for the browserless service. networks_advanced (not
+  # network_mode) is required to attach to more than one network. NOTE: coder-shared
+  # must exist first (deploy the browserless Portainer stack before pushing this).
+  networks_advanced {
+    name = docker_network.workspace[count.index].name
+  }
+  networks_advanced {
+    name = "coder-shared"
+  }
   # Run a real init (Docker's tini) as PID 1 so zombie reaping works; without it,
   # service restarts fail on first try. Baking tini into the image wouldn't help —
   # the entrypoint above overrides any image ENTRYPOINT.
@@ -580,16 +596,6 @@ module "mailpit" {
   docker_network_name = docker_network.workspace[0].name
   resource_name_base  = local.resource_name_base
   proxy_mappings      = ["18025:mailpit:8025"]
-}
-
-module "playwright" {
-  # NOTE: requires a coder-registry release that INCLUDES modules/playwright.
-  # Bump this ref to the tag you cut for it (and keep the env wiring in coder_agent.main).
-  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/playwright?ref=v2026.06.30.0"
-  count               = data.coder_workspace.me.start_count
-  agent_id            = coder_agent.main.id
-  docker_network_name = docker_network.workspace[0].name
-  resource_name_base  = local.resource_name_base
 }
 
 module "ssh_setup" {

@@ -110,11 +110,14 @@ jobs:
         env:
           # Map the secret to a shell variable to avoid injection/escaping issues
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          # Shared browserless token; must match the browserless Portainer stack.
+          BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
         run: |
           coder templates push ruby \
             --directory . \
             --name "${{ github.ref_name }}" \
             --message "Release: ${{ github.ref_name }}" \
             --var "GHP_REGISTRY_PASS=${GHCR_TOKEN}" \
+            --var "playwright_token=${BROWSERLESS_TOKEN}" \
             --activate=false \
             --yes

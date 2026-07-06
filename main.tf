@@ -633,46 +633,6 @@ module "vault" {
   vault_cli_version = "2.0.2"
 }
 
-# Retry backstop for the vault module above. That module's login script makes a
-# single attempt (fetch external-auth token, one `vault login`) and exits on any
-# transient GitHub-API or token-refresh blip, leaving no cached token. This
-# re-runs the login with backoff only if the module didn't leave a valid token.
-# Non-fatal by design: it always exits 0 so a sealed/unreachable Vault never
-# blocks workspace start (downstream Vault reads already skip gracefully).
-resource "coder_script" "vault_login_retry" {
-  count              = data.coder_workspace.me.start_count
-  agent_id           = coder_agent.main.id
-  display_name       = "Vault login (retry backstop)"
-  icon               = "/icon/vault.svg"
-  run_on_start       = true
-  start_blocks_login = false
-  script             = <<-EOT
-    #!/usr/bin/env bash
-    set -uo pipefail
-    export VAULT_ADDR="https://vault.embold.dev"
-
-    # If the vault module already cached a valid token, there is nothing to do.
-    if vault token lookup >/dev/null 2>&1; then
-      echo "Vault token already valid; retry backstop not needed."
-      exit 0
-    fi
-
-    for attempt in 1 2 3; do
-      echo "Vault login backstop attempt $attempt/3..."
-      if token=$(coder external-auth access-token github 2>/dev/null) \
-        && [ -n "$token" ] \
-        && vault login -no-print -method=github -path=github token="$token" >/dev/null 2>&1; then
-        echo "Vault login succeeded on backstop attempt $attempt."
-        exit 0
-      fi
-      sleep $((attempt * 3))
-    done
-
-    echo "Vault login backstop exhausted after 3 attempts; downstream Vault reads will skip." >&2
-    exit 0
-  EOT
-}
-
 # DEPRECATED: Keep this parameter for backward compatibility with workspaces
 # created before the dotfiles module was introduced. Existing workspaces have a
 # stored value under the name "dotfiles URL" — removing it breaks upgrades.

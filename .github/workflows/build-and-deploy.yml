@@ -103,7 +103,7 @@ jobs:
       - name: Setup Coder
         uses: coder/setup-action@v1
         with:
-          access_url: https://embold.dev
+          access_url: https://coder.embold.dev
           coder_session_token: ${{ secrets.CODER_TOKEN }}
 
       - name: Push Coder Template

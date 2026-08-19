@@ -112,6 +112,9 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           # Shared browserless token; must match the browserless Portainer stack.
           BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
+          # 1Password service account (pulsar-deploy, read on Ops-Apps). Becomes
+          # OP_SERVICE_ACCOUNT_TOKEN in every workspace via the onepassword module.
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         run: |
           coder templates push ruby \
             --directory . \
@@ -119,5 +122,6 @@ jobs:
             --message "Release: ${{ github.ref_name }}" \
             --var "GHP_REGISTRY_PASS=${GHCR_TOKEN}" \
             --var "playwright_token=${BROWSERLESS_TOKEN}" \
+            --var "op_service_account_token=${OP_SERVICE_ACCOUNT_TOKEN}" \
             --activate=false \
             --yes

@@ -1,0 +1,7 @@
+# coder templates push uploads the whole directory and does not honour .gitignore,
+# so without this the local tfvars (which holds real tokens) ships inside the template
+# archive stored in Coder's database. Variables come from --var in CI instead.
+*.tfvars
+*.tfvars.json
+.terraform/
+.terraform.lock.hcl

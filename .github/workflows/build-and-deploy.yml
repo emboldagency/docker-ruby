@@ -120,7 +120,7 @@ jobs:
             --directory . \
             --name "${{ github.ref_name }}" \
             --message "Release: ${{ github.ref_name }}" \
-            --var "GHP_REGISTRY_PASS=${GHCR_TOKEN}" \
+            --var "ghp_registry_pass=${GHCR_TOKEN}" \
             --var "playwright_token=${BROWSERLESS_TOKEN}" \
             --var "op_service_account_token=${OP_SERVICE_ACCOUNT_TOKEN}" \
             --activate=false \

@@ -21,7 +21,7 @@ provider "docker" {
   registry_auth {
     address  = "ghcr.io"
     username = "emboldagency"
-    password = var.GHP_REGISTRY_PASS
+    password = var.ghp_registry_pass
   }
 }
 
@@ -29,7 +29,8 @@ provider "docker" {
 # Variables
 # ------------------------------------------------------------------------------
 
-variable "GHP_REGISTRY_PASS" {
+variable "ghp_registry_pass" {
+  type      = string
   sensitive = true
 }
 

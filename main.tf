@@ -39,6 +39,12 @@ variable "playwright_token" {
   type      = string
   sensitive = true
 }
+# 1Password service account token (pulsar-deploy, read on Ops-Apps). Supply via the gitignored
+# terraform.tfvars, same as playwright_token, so it never lands in git.
+variable "op_service_account_token" {
+  type      = string
+  sensitive = true
+}
 
 # ------------------------------------------------------------------------------
 # Coder Parameters
@@ -633,6 +639,25 @@ module "vault" {
   # download. Keep in sync with VAULT_VERSION in docker-base when you bump it
   # (a mismatch is harmless, it just triggers one redundant download at start).
   vault_cli_version = "2.0.2"
+}
+
+# Installs the op CLI and sets OP_SERVICE_ACCOUNT_TOKEN in the workspace, so anything that
+# needs a shared secret (pulsar deploys, via Capistrano::OnePassword) works with no per-person
+# setup. Personal secrets do NOT come through here, they arrive as Coder user secrets, because
+# a service account cannot read a personal 1Password vault.
+#
+# A developer who needs different scope can create a Coder user secret named
+# OP_SERVICE_ACCOUNT_TOKEN, which overrides this value in their own workspaces.
+module "onepassword" {
+  source                = "registry.coder.com/bpmct/onepassword/coder"
+  version               = "1.0.2"
+  count                 = data.coder_workspace.me.start_count
+  agent_id              = coder_agent.main.id
+  service_account_token = var.op_service_account_token
+  # Pinned rather than "latest" so a workspace start never picks up a new CLI unannounced. The
+  # module skips its download when the installed version matches exactly, so bake this same
+  # version into docker-base when the Vault CLI comes out and the download disappears.
+  op_cli_version = "2.39.0"
 }
 
 # DEPRECATED: Keep this parameter for backward compatibility with workspaces

@@ -563,7 +563,8 @@ module "dotfiles" {
   agent_id        = coder_agent.main.id
   user            = "embold"
   parameter_order = 10 # 3 parameters
-  manual_update   = true
+  # TODO: Fix the manual "Refresh Dotfiles" webapp.
+  manual_update = false
   # Pass the deprecated dotfiles_url value so the module skips creating its own
   # parameter when a legacy value exists. On new workspaces the deprecated param
   # is empty so the module's parameter takes over.

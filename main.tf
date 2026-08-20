@@ -221,7 +221,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "Memory Usage"
     key          = "mem"
-    script       = "coder stat mem --prefix 'Gi' | sed 's/ //;s/iB//'"
+    script       = "coder stat mem --prefix 'Gi' | awk '{printf \"%.2fG\", $1}'"
     interval     = 30
     timeout      = 1
     order        = 2
@@ -230,7 +230,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "Home Volume Size"
     key          = "home_volume_size"
-    script       = "du -BG --apparent-size /home/embold | tail -1 | awk '{print $1}'"
+    script       = "du -sb --apparent-size /home/embold | awk '{printf \"%.2fG\", $1/1024/1024/1024}'"
     interval     = 300
     timeout      = 30
     order        = 3
@@ -239,7 +239,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "Database Size"
     key          = "postgres_volume_size"
-    script       = "psql -U embold -d ${local.db_name} -c \"SELECT pg_size_pretty(pg_database_size('${local.db_name}'));\" -t | xargs"
+    script       = "psql -U embold -d ${local.db_name} -t -c \"SELECT ROUND(pg_database_size('${local.db_name}') / 1024.0 / 1024 / 1024, 2);\" | xargs | awk '{print $1\"G\"}'"
     interval     = 300
     timeout      = 30
     order        = 4
@@ -250,7 +250,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "Database Disk Usage"
     key          = "postgres_disk_usage"
-    script       = "du -BG --apparent-size /mnt/postgres-data 2>/dev/null | tail -1 | awk '{print $1}'"
+    script       = "du -sb --apparent-size /mnt/postgres-data 2>/dev/null | awk '{printf \"%.2fG\", $1/1024/1024/1024}'"
     interval     = 300
     timeout      = 30
     order        = 5

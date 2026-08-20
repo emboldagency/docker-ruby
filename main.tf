@@ -190,14 +190,13 @@ resource "coder_agent" "main" {
   os                      = "linux"
   startup_script_behavior = "blocking"
 
-  env = {
+  env = merge({
     APP                    = local.app
     CODER_TEMPLATE_VERSION = local.template_version
     CODER_USERNAME         = local.user_username
     CODER_WORKSPACE_NAME   = local.workspace_name
     CODER_WORKSPACE_PORT   = 3000
     DEVURL                 = local.dev_url
-    DOTFILES_URL           = local.dotfiles_uri
     GIT_AUTHOR_NAME        = local.user_full_name
     GIT_AUTHOR_EMAIL       = local.user_email
     GIT_COMMITTER_NAME     = local.user_full_name
@@ -206,7 +205,9 @@ resource "coder_agent" "main" {
     # Point the Playwright MCP at the shared browserless service (on coder-shared)
     # instead of installing a local Chromium. token must match the browserless stack.
     PLAYWRIGHT_MCP_CDP_ENDPOINT = "ws://browserless:3000?token=${var.playwright_token}"
-  }
+    # Omit DOTFILES_URL entirely (rather than set it empty) when there's no explicit
+    # override, so it doesn't show up as noise in `printenv`.
+  }, local.dotfiles_uri != "" ? { DOTFILES_URL = local.dotfiles_uri } : {})
 
   metadata {
     display_name = "CPU Usage"

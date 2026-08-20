@@ -544,7 +544,7 @@ module "coder-login" {
   agent_id = coder_agent.main.id
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/coder-login/coder"
-  version  = "1.1.0"
+  version  = "1.1.1"
 }
 
 module "code-server" {

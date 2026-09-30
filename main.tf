@@ -151,7 +151,7 @@ data "coder_workspace_owner" "me" {}
 # do NOT inject .access_token into the agent/container env: it's a GitHub App
 # user-to-server token (ghu_…) with a finite TTL, so a build-time snapshot goes
 # stale while the workspace stays up. Tools fetch a fresh token at runtime
-# instead (git via GIT_ASKPASS/coder gitssh; gh/vault via `coder external-auth`).
+# instead (git via GIT_ASKPASS/coder gitssh; gh via `coder external-auth`).
 data "coder_external_auth" "github" {
   id = "github"
 }
@@ -629,19 +629,6 @@ module "timezone" {
   parameter_order = 7 # 1 parameter
 }
 
-module "vault" {
-  source     = "registry.coder.com/coder/vault-github/coder"
-  version    = "1.1.2"
-  count      = data.coder_workspace.me.start_count
-  agent_id   = coder_agent.main.id
-  vault_addr = "https://vault.embold.dev"
-  # Pin to the vault binary baked into the workspace image so the vault-github
-  # module finds a matching version already present and skips its per-boot
-  # download. Keep in sync with VAULT_VERSION in docker-base when you bump it
-  # (a mismatch is harmless, it just triggers one redundant download at start).
-  vault_cli_version = "2.0.2"
-}
-
 # Installs the op CLI and sets OP_SERVICE_ACCOUNT_TOKEN in the workspace, so anything that
 # needs a shared secret (pulsar deploys, via Capistrano::OnePassword) works with no per-person
 # setup. Personal secrets do NOT come through here, they arrive as Coder user secrets, because
@@ -656,8 +643,8 @@ module "onepassword" {
   agent_id              = coder_agent.main.id
   service_account_token = var.op_service_account_token
   # Pinned rather than "latest" so a workspace start never picks up a new CLI unannounced. The
-  # module skips its download when the installed version matches exactly, so bake this same
-  # version into docker-base when the Vault CLI comes out and the download disappears.
+  # module skips its download when the installed version matches exactly, so keep this in sync
+  # with OP_VERSION in docker-base to avoid a redundant download at every start.
   op_cli_version = "2.39.0"
 }
 

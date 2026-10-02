@@ -2,126 +2,32 @@ name: Build and Deploy Ruby
 
 on:
   push:
-    branches: # Added this to keep cache warm on main commits
-      - main
+    branches:
+      - main # keeps the registry cache warm
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
       skip-jobs:
-        description: "Space-separated list of jobs to skip"
+        description: "Space-separated jobs to skip: build-and-push-docker, update-coder-template"
         required: false
         default: ""
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  LATEST_UBUNTU: "26.04"
-  LATEST_RUBY: "4.0.5"
-
 jobs:
-  initialization:
-    runs-on: ubuntu-latest
-    outputs:
-      skip-build: ${{ steps.check.outputs.skip }}
-    steps:
-      - id: check
-        run: |
-          if [[ "${{ github.event.inputs['skip-jobs'] }}" == *"build-and-push-docker"* ]]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-  build-and-push-docker:
-    needs: initialization
-    if: needs.initialization.outputs.skip-build != 'true'
-    runs-on: ubuntu-latest
+  build:
+    uses: emboldagency/.github/.github/workflows/docker-build.yml@master
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false # Don't stop all jobs if one Ruby version fails
-      matrix:
-        ruby_version: ["4.0.5", "3.4.9", "3.3.11", "3.3.1", "3.0.7"]
-        ubuntu_version: ["24.04", "26.04"]
-        exclude:
-          # Ruby 3.0.x predates Ubuntu 26.04's toolchain (GCC 15, OpenSSL 3.5)
-          # and ruby-build doesn't auto-patch EOL'd Rubies for new compilers.
-          - ruby_version: "3.0.7"
-            ubuntu_version: "26.04"
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # Don't let every matrix job race to claim `latest`; tag it only on the newest default combo.
-          flavor: |
-            latest=false
-          tags: |
-            type=match,pattern=v(.*),group=1,prefix=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}-
-            type=raw,value=${{ matrix.ruby_version }}-ubuntu${{ matrix.ubuntu_version }}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && matrix.ruby_version == env.LATEST_RUBY && matrix.ubuntu_version == env.LATEST_UBUNTU }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./build
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            RUBY_VERSION=${{ matrix.ruby_version }}
-            UBUNTU_VERSION=${{ matrix.ubuntu_version }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
-          cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-ruby-${{ matrix.ruby_version }}-ubuntu-${{ matrix.ubuntu_version }}
-
-  update-coder-template:
-    needs: [initialization, build-and-push-docker]
-    # Only run if not cancelled AND triggered by a tag AND not explicitly skipped AND (build was skipped OR build succeeded)
-    if: ${{ !cancelled() && github.ref_type == 'tag' && !contains(github.event.inputs['skip-jobs'], 'update-coder-template') && (needs.initialization.outputs.skip-build == 'true' || needs.build-and-push-docker.result == 'success') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Coder
-        uses: coder/setup-action@v1
-        with:
-          access_url: https://coder.embold.dev
-          coder_session_token: ${{ secrets.CODER_TOKEN }}
-
-      - name: Push Coder Template
-        env:
-          # Map the secret to a shell variable to avoid injection/escaping issues
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          # Shared browserless token; must match the browserless Portainer stack.
-          BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
-          # 1Password service account (pulsar-deploy, read on Ops-Apps). Becomes
-          # OP_SERVICE_ACCOUNT_TOKEN in every workspace via the onepassword module.
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        run: |
-          coder templates push ruby \
-            --directory . \
-            --name "${{ github.ref_name }}" \
-            --message "Release: ${{ github.ref_name }}" \
-            --var "ghp_registry_pass=${GHCR_TOKEN}" \
-            --var "playwright_token=${BROWSERLESS_TOKEN}" \
-            --var "op_service_account_token=${OP_SERVICE_ACCOUNT_TOKEN}" \
-            --activate=false \
-            --yes
+    with:
+      language: ruby
+      versions: '["4.0.5", "3.4.9", "3.3.11", "3.3.1", "3.0.7"]'
+      ubuntu_versions: '["24.04", "26.04"]'
+      # Ruby 3.0.x predates Ubuntu 26.04's toolchain (GCC 15, OpenSSL 3.5),
+      # and ruby-build doesn't auto-patch EOL'd Rubies for new compilers.
+      exclude: '[{"version": "3.0.7", "ubuntu": "26.04"}]'
+      latest_version: "4.0.5"
+      latest_ubuntu: "26.04"
+      coder_template: ruby
+      skip_jobs: ${{ inputs.skip-jobs || '' }}
+    secrets: inherit

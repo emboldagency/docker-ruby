@@ -151,7 +151,7 @@ data "coder_workspace_owner" "me" {}
 # do NOT inject .access_token into the agent/container env: it's a GitHub App
 # user-to-server token (ghu_…) with a finite TTL, so a build-time snapshot goes
 # stale while the workspace stays up. Tools fetch a fresh token at runtime
-# instead (git via GIT_ASKPASS/coder gitssh; gh/vault via `coder external-auth`).
+# instead (git via GIT_ASKPASS/coder gitssh; gh via `coder external-auth`).
 data "coder_external_auth" "github" {
   id = "github"
 }
@@ -527,7 +527,7 @@ resource "coder_metadata" "container_info" {
 # ------------------------------------------------------------------------------
 
 module "adminer" {
-  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/adminer?ref=v2026.08.20.0"
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/adminer?ref=v2026.10.01.0"
   count               = data.coder_workspace.me.start_count
   agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
@@ -559,7 +559,7 @@ module "code-server" {
 }
 
 module "dotfiles" {
-  source          = "git::https://github.com/emboldagency/coder-registry.git//modules/dotfiles?ref=v2026.08.20.0"
+  source          = "git::https://github.com/emboldagency/coder-registry.git//modules/dotfiles?ref=v2026.10.01.0"
   count           = data.coder_workspace.me.start_count
   agent_id        = coder_agent.main.id
   user            = "embold"
@@ -573,7 +573,7 @@ module "dotfiles" {
 }
 
 module "dynamic_services" {
-  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/dynamic-resources?ref=v2026.08.20.0"
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/dynamic-resources?ref=v2026.10.01.0"
   count               = data.coder_workspace.me.start_count
   agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
@@ -582,7 +582,7 @@ module "dynamic_services" {
 }
 
 module "home_setup" {
-  source     = "git::https://github.com/emboldagency/coder-registry.git//modules/home-setup?ref=v2026.08.20.0"
+  source     = "git::https://github.com/emboldagency/coder-registry.git//modules/home-setup?ref=v2026.10.01.0"
   count      = data.coder_workspace.me.start_count
   agent_id   = coder_agent.main.id
   source_dir = "/coder/home"
@@ -599,7 +599,7 @@ module "jetbrains_gateway" {
 }
 
 module "mailpit" {
-  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/mailpit?ref=v2026.08.20.0"
+  source              = "git::https://github.com/emboldagency/coder-registry.git//modules/mailpit?ref=v2026.10.01.0"
   count               = data.coder_workspace.me.start_count
   agent_id            = coder_agent.main.id
   docker_network_name = docker_network.workspace[0].name
@@ -608,7 +608,7 @@ module "mailpit" {
 }
 
 module "ssh_setup" {
-  source   = "git::https://github.com/emboldagency/coder-registry.git//modules/ssh-setup?ref=v2026.08.20.0"
+  source   = "git::https://github.com/emboldagency/coder-registry.git//modules/ssh-setup?ref=v2026.10.01.0"
   count    = data.coder_workspace.me.start_count
   agent_id = coder_agent.main.id
   hosts = [
@@ -624,22 +624,9 @@ module "ssh_setup" {
 }
 
 module "timezone" {
-  source          = "git::https://github.com/emboldagency/coder-registry.git//modules/timezone?ref=v2026.08.20.0"
+  source          = "git::https://github.com/emboldagency/coder-registry.git//modules/timezone?ref=v2026.10.01.0"
   agent_id        = coder_agent.main.id
   parameter_order = 7 # 1 parameter
-}
-
-module "vault" {
-  source     = "registry.coder.com/coder/vault-github/coder"
-  version    = "1.1.2"
-  count      = data.coder_workspace.me.start_count
-  agent_id   = coder_agent.main.id
-  vault_addr = "https://vault.embold.dev"
-  # Pin to the vault binary baked into the workspace image so the vault-github
-  # module finds a matching version already present and skips its per-boot
-  # download. Keep in sync with VAULT_VERSION in docker-base when you bump it
-  # (a mismatch is harmless, it just triggers one redundant download at start).
-  vault_cli_version = "2.0.2"
 }
 
 # Installs the op CLI and sets OP_SERVICE_ACCOUNT_TOKEN in the workspace, so anything that
@@ -656,8 +643,8 @@ module "onepassword" {
   agent_id              = coder_agent.main.id
   service_account_token = var.op_service_account_token
   # Pinned rather than "latest" so a workspace start never picks up a new CLI unannounced. The
-  # module skips its download when the installed version matches exactly, so bake this same
-  # version into docker-base when the Vault CLI comes out and the download disappears.
+  # module skips its download when the installed version matches exactly, so keep this in sync
+  # with OP_VERSION in docker-base to avoid a redundant download at every start.
   op_cli_version = "2.39.0"
 }
 

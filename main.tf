@@ -77,16 +77,16 @@ data "coder_parameter" "ruby_version" {
   description  = "Which version of Ruby? Must match a [ghcr.io/emboldagency/docker-ruby](https://github.com/emboldagency/docker-ruby/pkgs/container/docker-ruby) image tag."
   icon         = "/icon/ruby.png"
   type         = "string"
-  default      = "3.4.9"
+  default      = "3.4.12"
   mutable      = true
   order        = 3
   option {
-    name  = "4.0.5"
-    value = "4.0.5"
+    name  = "4.0.9"
+    value = "4.0.9"
   }
   option {
-    name  = "3.4.9"
-    value = "3.4.9"
+    name  = "3.4.12"
+    value = "3.4.12"
   }
   option {
     name  = "3.3.11"
@@ -108,7 +108,7 @@ data "coder_parameter" "postgres_version" {
   description  = "What version of Postgres? Must match a [postgres](https://hub.docker.com/_/postgres) image tag. \n\n_NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start._"
   icon         = "/icon/postgres.svg"
   type         = "string"
-  default      = "15"
+  default      = "18"
   mutable      = true
   order        = 4
 }
@@ -548,7 +548,8 @@ module "coder-login" {
 }
 
 module "code-server" {
-  source       = "https://registry.coder.com/modules/code-server"
+  source       = "registry.coder.com/coder/code-server/coder"
+  version      = "1.6.0"
   agent_id     = coder_agent.main.id
   folder       = "/home/embold/code/${local.app}"
   display_name = "VS Code Web"
@@ -581,16 +582,9 @@ module "dynamic_services" {
   parameter_order     = 30 # 34 parameters (pushed towards end)
 }
 
-module "home_setup" {
-  source     = "git::https://github.com/emboldagency/coder-registry.git//modules/home-setup?ref=v2026.10.01.0"
-  count      = data.coder_workspace.me.start_count
-  agent_id   = coder_agent.main.id
-  source_dir = "/coder/home"
-  target_dir = "/home/embold"
-}
-
 module "jetbrains_gateway" {
-  source         = "https://registry.coder.com/modules/jetbrains-gateway"
+  source         = "registry.coder.com/coder/jetbrains-gateway/coder"
+  version        = "1.2.6"
   agent_id       = coder_agent.main.id
   agent_name     = local.workspace_name
   folder         = "/home/embold/code/${local.app}"

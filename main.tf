@@ -548,7 +548,8 @@ module "coder-login" {
 }
 
 module "code-server" {
-  source       = "https://registry.coder.com/modules/code-server"
+  source       = "registry.coder.com/coder/code-server/coder"
+  version      = "1.6.0"
   agent_id     = coder_agent.main.id
   folder       = "/home/embold/code/${local.app}"
   display_name = "VS Code Web"
@@ -581,16 +582,9 @@ module "dynamic_services" {
   parameter_order     = 30 # 34 parameters (pushed towards end)
 }
 
-module "home_setup" {
-  source     = "git::https://github.com/emboldagency/coder-registry.git//modules/home-setup?ref=v2026.10.01.0"
-  count      = data.coder_workspace.me.start_count
-  agent_id   = coder_agent.main.id
-  source_dir = "/coder/home"
-  target_dir = "/home/embold"
-}
-
 module "jetbrains_gateway" {
-  source         = "https://registry.coder.com/modules/jetbrains-gateway"
+  source         = "registry.coder.com/coder/jetbrains-gateway/coder"
+  version        = "1.2.6"
   agent_id       = coder_agent.main.id
   agent_name     = local.workspace_name
   folder         = "/home/embold/code/${local.app}"

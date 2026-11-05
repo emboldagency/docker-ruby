@@ -446,9 +446,10 @@ resource "docker_container" "workspace" {
     # probe that 500s the dashboard's /containers call.
     "CODER_AGENT_DEVCONTAINERS_ENABLE=false",
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    "DATABASE_URL=postgresql://embold:embold@postgres:5432/${local.db_name}",
     # No static GITHUB_TOKEN here on purpose — see data.coder_external_auth.github.
     "HOSTNAME=${local.app}",
+    # PG* rather than DATABASE_URL: Rails merges DATABASE_URL into every env (tests hit the dev DB),
+    # while libpq only uses PG* for keys database.yml leaves out.
     "PGHOST=postgres",
     "PGDATABASE=${local.db_name}",
     "PGUSER=embold",

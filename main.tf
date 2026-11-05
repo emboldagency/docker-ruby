@@ -108,7 +108,7 @@ data "coder_parameter" "postgres_version" {
   description  = "What version of Postgres? Must match a [postgres](https://hub.docker.com/_/postgres) image tag. \n\n_NOTE: Changing this without destroying the PG volume will cause the PG container to fail to start._"
   icon         = "/icon/postgres.svg"
   type         = "string"
-  default      = "15"
+  default      = "18"
   mutable      = true
   order        = 4
 }

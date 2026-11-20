@@ -19,7 +19,7 @@ Coder template (Terraform) + matching Ruby workspace image. The image builds `FR
 - Module sources are pinned to `coder-registry` tags (e.g. `?ref=v2026.03.11.0`); bump them intentionally.
 - `terraform.tfvars` is gitignored and holds `ghp_registry_pass`.
 - Workspace container attaches a single bridge network per workspace (`docker_network.workspace`). Ollama is reached via the public URL (`https://ollama.embold.dev`), not a shared docker network.
-- The DB sidecar is Postgres (vs MySQL in docker-php); env vars `PGHOST`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` and `DATABASE_URL` are wired into the workspace container.
+- The DB sidecar is Postgres (vs MySQL in docker-php); env vars `PGHOST`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` are wired into the workspace container. Don't add `DATABASE_URL` or `RAILS_ENV`: Rails merges `DATABASE_URL` into every environment (so tests land on the dev DB), and `RAILS_ENV=development` defeats the `ENV["RAILS_ENV"] ||= "test"` in test helpers.
 
 ## Release flow
 

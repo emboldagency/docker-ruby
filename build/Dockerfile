@@ -103,7 +103,11 @@ USER root
 # Install Runtime Dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update \
+    # Postgres Repo (before the install so postgresql-client comes from PGDG, not Ubuntu)
+    mkdir -p /usr/share/postgresql-common/pgdg \
+    && curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
     # C++ compiler (sometimes needed for native gem extensions)
     g++ \
@@ -129,11 +133,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     postgresql-client \
     # Runtime headers for compression
     zlib1g-dev \
-    # Postgres Repo
-    && mkdir -p /usr/share/postgresql-common/pgdg \
-    && curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    && sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' \
-    && apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Ruby from Builder
